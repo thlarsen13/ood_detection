@@ -187,14 +187,18 @@ def posterior(kernel_size, bias_size, dtype=None):
     n = kernel_size + bias_size
     print("ks: " + str(kernel_size))
     print("bs: " + str(bias_size))
-    posterior_model = keras.Sequential(
-        [
-            tfp.layers.VariableLayer(
-                tfp.layers.MultivariateNormalTriL.params_size(n), dtype=dtype
-            ),
-            tfp.layers.MultivariateNormalTriL(n),
-        ]
-    )
+    # posterior_model = keras.Sequential(
+    #     [
+    #         tfp.layers.VariableLayer(
+    #             tfp.layers.MultivariateNormalTriL.params_size(n), dtype=dtype
+    #         ),
+    #         tfp.layers.MultivariateNormalTriL(n),
+    #     ]
+    # )
+    posterior_model = keras.Sequential([
+        tfp.layers.VariableLayer(tfp.layers.IndependentNormal.params_size(n), dtype=dtype), 
+        tfp.layers.IndependentNormal(n)])
+
     return posterior_model
 
 def create_model():
@@ -418,6 +422,7 @@ def main(argv):
     print('---Predicting---')
     for _ in range(FLAGS.num_monte_carlo):
         print(model.predict(heldout_seq, verbose=1))
+
 
 if __name__ == '__main__':
     app.run(main)
