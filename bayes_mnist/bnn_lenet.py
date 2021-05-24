@@ -423,7 +423,6 @@ def main(argv):
     for _ in range(FLAGS.num_monte_carlo):
         print(model.predict(heldout_seq, verbose=1))
 
-
 if __name__ == '__main__':
     app.run(main)
 
