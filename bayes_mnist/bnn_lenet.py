@@ -62,6 +62,11 @@ NUM_TRAIN_EXAMPLES = 60000
 NUM_HELDOUT_EXAMPLES = 10000
 NUM_CLASSES = 10
 
+
+nn_path = '/home/thlarsen/ood_detection/bayes_mnist/point_lenet_save/'
+# bnn_path = '/home/thlarsen/ood_detection/bayes_mnist/lenet_save/'
+bnn_path = '/home/thlarsen/ood_detection/bayes_mnist/lenet_save2/'
+
 flags.DEFINE_float('learning_rate',
                                      default=0.001,
                                      help='Initial learning rate.')
@@ -223,6 +228,13 @@ def create_model():
                     padding='SAME',
                     kernel_divergence_fn=kl_divergence_function,
                     activation=tf.nn.relu),
+            # tfp.layers.conv_variational(2, 6, 5
+                    # padding="SAME"
+                    # make_prior_fn=prior, 
+                    # make_posterior_fn=posterior,
+                    # kl_weight=1/NUM_TRAIN_EXAMPLES,
+                    # activation=tf.nn.relu
+                    # ),
             tf.keras.layers.MaxPooling2D(
                     pool_size=[2, 2], strides=[2, 2],
                     padding='SAME'),
@@ -238,12 +250,9 @@ def create_model():
                     kernel_divergence_fn=kl_divergence_function,
                     activation=tf.nn.relu),
             tf.keras.layers.Flatten(),
-            tfp.layers.DenseVariational(
-                    84, 
-                    make_prior_fn=prior,
-                    make_posterior_fn=posterior, 
-                    kl_weight=1/NUM_TRAIN_EXAMPLES,
-                    activation=tf.nn.relu),
+            tfp.layers.DenseFlipout(
+                    84, kernel_divergence_fn=kl_divergence_function,
+                    activation=tf.nn.softmax),
             tfp.layers.DenseFlipout(
                     NUM_CLASSES, kernel_divergence_fn=kl_divergence_function,
                     activation=tf.nn.softmax)
@@ -339,6 +348,9 @@ def train_model(path, train_seq, heldout_seq):
     # model correctly.
     model.build(input_shape=[None, 28, 28, 1])
 
+    nn = load_model(nn_path)
+    copy_weights(nn, model)
+
     print(' ... Training convolutional neural network')
     for epoch in range(FLAGS.num_epochs):
         epoch_accuracy, epoch_loss = [], []
@@ -392,6 +404,34 @@ def train_model(path, train_seq, heldout_seq):
     model.save(path)
     return model
 
+
+def load_model(path): 
+    return tf.keras.models.load_model(path)
+
+def copy_weights(m1, m2):
+    for i, l1 in enumerate(m1.layers): 
+        l2 = m2.layers[i]
+        w1 = l1.get_weights()
+        w2 = l2.get_weights()
+        print("---NN " + str(i) + " weights---")
+        for x in w1:
+            print(x.shape)
+        print("---BNN " + str(i) + " weights---")
+        for x in w2:
+            print(x.shape)
+    
+    for i, l1 in enumerate(m1.layers): 
+        l2 = m2.layers[i]
+        w1 = l1.get_weights()
+        w2 = l2.get_weights()
+        
+        if w1 and w2:
+            w2[0] = w1[0]
+            w2[2] = w1[1]
+
+            l2.set_weights(w2)
+            m2.layers[i] = l2
+
 def main(argv):
     del argv  # unused
     if tf.io.gfile.exists(FLAGS.model_dir):
@@ -410,15 +450,19 @@ def main(argv):
         heldout_seq = MNISTSequence(data=heldout_set, batch_size=FLAGS.batch_size)
 
     train = True
-    path = '/home/thlarsen/ood_detection/bayes_mnist/lenet_save/'
+
     model = None 
     if train: 
-        model = train_model(path, train_seq, heldout_seq)
+        # bnn = load_model(bnn_path)
+        # nn = load_model(nn_path)
+        model = train_model(bnn_path, train_seq, heldout_seq)
     else: 
-        model = load_model(path)
+        model = load_model(bnn_path)
 
-    # model.summary()
-    # exit()
+    model.summary()
+    from lenet import get_weights_shapes
+    get_weights_shapes(model)
+    exit()
     print('---Predicting---')
     for _ in range(FLAGS.num_monte_carlo):
         print(model.predict(heldout_seq, verbose=1))

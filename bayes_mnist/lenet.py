@@ -25,7 +25,6 @@ def train_model():
 
     model.build(input_shape=[None, 28, 28, 1])
 
-
     model.compile(optimizer='adam', loss=losses.sparse_categorical_crossentropy, metrics=['accuracy'])
 
     history = model.fit(x_train, y_train, batch_size=64, epochs=40, validation_data=(x_test, y_test))
@@ -36,6 +35,18 @@ def train_model():
 
 def load_model(): 
     return tf.keras.models.load_model(path)
+def get_weights_shapes(model): 
+    for i, l in enumerate(model.layers): 
+        # l = model.layers[0]
+            weights = l.get_weights()
+            # W = np.array(weights[0])
+            # b = weights[1]
+            # print(W.shape)
+            # print(b.shape)
+            print("---layer " + str(i) + " weights---")
+            for x in weights:
+                print(x.shape)
+
 
 def main(): 
     TRAIN = False 
@@ -44,14 +55,8 @@ def main():
         train_model()
     else:
         model = load_model() 
-        print(model.layers)
-        # for l in model.layers: 
-        l = model.layers[0]
-        weights = l.get_weights()
-        W = np.array(weights[0])
-        b = weights[1]
-        print(W.shape)
-        print(b.shape)
+        model.summary()
+        get_weights_shapes(model)
 
 
 if __name__ == '__main__':
