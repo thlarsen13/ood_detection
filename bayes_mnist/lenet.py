@@ -2,13 +2,14 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.keras import datasets, layers, models, losses
 import numpy as np
+import model_helper as h
+
 (x_train, y_train), (x_test, y_test)=tf.keras.datasets.mnist.load_data()
 x_train = tf.expand_dims(x_train, axis=3, name=None)
 x_test = tf.expand_dims(x_test, axis=3, name=None)
 
-path = '/home/thlarsen/ood_detection/bayes_mnist/point_lenet_save/'
 
-def train_model():
+def train_model(path):
 
     model = models.Sequential()
     model.add(layers.Conv2D(6, kernel_size=5, padding='SAME', activation='relu', input_shape=x_train.shape[1:]))
@@ -33,30 +34,19 @@ def train_model():
 
     model.save(path)
 
-def load_model(): 
-    return tf.keras.models.load_model(path)
-def get_weights_shapes(model): 
-    for i, l in enumerate(model.layers): 
-        # l = model.layers[0]
-            weights = l.get_weights()
-            # W = np.array(weights[0])
-            # b = weights[1]
-            # print(W.shape)
-            # print(b.shape)
-            print("---layer " + str(i) + " weights---")
-            for x in weights:
-                print(x.shape)
 
 
 def main(): 
     TRAIN = False 
+    path = '/home/thlarsen/ood_detection/bayes_mnist/point_lenet_save/'
+
 
     if TRAIN: 
-        train_model()
+        train_model(path)
     else:
-        model = load_model() 
+        model = h.load_model(path) 
         model.summary()
-        get_weights_shapes(model)
+        h.print_weights([model], ["NN"])
 
 
 if __name__ == '__main__':

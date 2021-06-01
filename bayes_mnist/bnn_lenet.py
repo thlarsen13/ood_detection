@@ -42,6 +42,9 @@ import numpy as np
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
+import model_helper as h 
+
+from tensorflow_probability.python.distributions import normal as normal_lib
 
 tf.enable_v2_behavior()
 
@@ -218,6 +221,26 @@ def create_model():
     kl_divergence_function = (lambda q, p, _: tfd.kl_divergence(q, p) /  # pylint: disable=g-long-lambda
                                                         tf.cast(NUM_TRAIN_EXAMPLES, dtype=tf.float32))
 
+    
+    nn = h.load_model(nn_path)
+    priors = []
+
+    for layer in nn.layers: 
+
+        W = layer.get_weights()
+        if W: 
+            means = W[0]
+            bias = W[1]
+            print(means.shape)
+            print(bias.shape)
+
+            priors.append( [tfp.layers.default_mean_field_normal_fn(
+                loc_initializer=tf.initializers.random_normal(mean=means, stddev=0.1)), 
+                        tfp.layers.default_mean_field_normal_fn(
+                loc_initializer=tf.initializers.random_normal(mean=bias, stddev=0.1))
+            ])
+
+
     # Define a LeNet-5 model using three convolutional (with max pooling)
     # and two fully connected dense layers. We use the Flipout
     # Monte Carlo estimator for these layers, which enables lower variance
@@ -227,7 +250,9 @@ def create_model():
                     6, kernel_size=5,
                     padding='SAME',
                     kernel_divergence_fn=kl_divergence_function,
-                    activation=tf.nn.relu),
+                    activation=tf.nn.relu, 
+                    kernel_prior_fn=priors[0][0],
+                    bias_prior_fn=priors[0][1]),
             # tfp.layers.conv_variational(2, 6, 5
                     # padding="SAME"
                     # make_prior_fn=prior, 
@@ -241,21 +266,29 @@ def create_model():
             tfp.layers.Convolution2DFlipout(
                     16, kernel_size=5, padding='SAME',
                     kernel_divergence_fn=kl_divergence_function,
-                    activation=tf.nn.relu),
+                    activation=tf.nn.relu, 
+                    kernel_prior_fn=priors[1][0],
+                    bias_prior_fn=priors[1][1]),
             tf.keras.layers.MaxPooling2D(
                     pool_size=[2, 2], strides=[2, 2],
                     padding='SAME'),
             tfp.layers.Convolution2DFlipout(
                     120, kernel_size=5, padding='SAME',
                     kernel_divergence_fn=kl_divergence_function,
-                    activation=tf.nn.relu),
+                    activation=tf.nn.relu,
+                    kernel_prior_fn=priors[2][0],
+                    bias_prior_fn=priors[2][1]),
             tf.keras.layers.Flatten(),
             tfp.layers.DenseFlipout(
                     84, kernel_divergence_fn=kl_divergence_function,
-                    activation=tf.nn.softmax),
+                    activation=tf.nn.softmax,
+                    kernel_prior_fn=priors[3][0],
+                    bias_prior_fn=priors[3][1]),
             tfp.layers.DenseFlipout(
                     NUM_CLASSES, kernel_divergence_fn=kl_divergence_function,
-                    activation=tf.nn.softmax)
+                    activation=tf.nn.softmax,
+                    kernel_prior_fn=priors[4][0],
+                    bias_prior_fn=priors[4][1])
     ])
 
     # Model compilation.
@@ -348,8 +381,8 @@ def train_model(path, train_seq, heldout_seq):
     # model correctly.
     model.build(input_shape=[None, 28, 28, 1])
 
-    nn = load_model(nn_path)
-    copy_weights(nn, model)
+    # nn = h.load_model(nn_path)
+    # h.copy_weights(nn, model)
 
     print(' ... Training convolutional neural network')
     for epoch in range(FLAGS.num_epochs):
@@ -404,33 +437,6 @@ def train_model(path, train_seq, heldout_seq):
     model.save(path)
     return model
 
-
-def load_model(path): 
-    return tf.keras.models.load_model(path)
-
-def copy_weights(m1, m2):
-    for i, l1 in enumerate(m1.layers): 
-        l2 = m2.layers[i]
-        w1 = l1.get_weights()
-        w2 = l2.get_weights()
-        print("---NN " + str(i) + " weights---")
-        for x in w1:
-            print(x.shape)
-        print("---BNN " + str(i) + " weights---")
-        for x in w2:
-            print(x.shape)
-    
-    for i, l1 in enumerate(m1.layers): 
-        l2 = m2.layers[i]
-        w1 = l1.get_weights()
-        w2 = l2.get_weights()
-        
-        if w1 and w2:
-            w2[0] = w1[0]
-            w2[2] = w1[1]
-
-            l2.set_weights(w2)
-            m2.layers[i] = l2
 
 def main(argv):
     del argv  # unused
