@@ -466,8 +466,7 @@ def main(argv):
         model = load_model(bnn_path)
 
     model.summary()
-    from lenet import get_weights_shapes
-    get_weights_shapes(model)
+    h.get_weights_shapes(model)
     exit()
     print('---Predicting---')
     for _ in range(FLAGS.num_monte_carlo):
