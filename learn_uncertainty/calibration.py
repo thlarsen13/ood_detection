@@ -13,6 +13,7 @@ from tensorflow_probability.python.internal import dtype_util
 from tensorflow_probability.python.internal import prefer_static as ps
 from tensorflow_probability.python.internal import tensorshape_util
 from tensorflow_probability.python.stats import quantiles as quantiles_lib
+from matplotlib import pyplot as plt
 
 
 # In[13]:
@@ -107,86 +108,131 @@ def _compute_calibration_bin_statistics(
 # In[16]:
 
 
-def computeESE(num_bins, logits=None, labels_true=None): 
-    """
-    Args:
-        num_bins: int, number of probability bins to compute oberved likelyhoods of correctness, e.g. 10.
-        logits: Tensor, (n,nlabels), with logits for n instances and nlabels.
-        labels_true: Tensor, (n,), with tf.int32 or tf.int64 elements containing
-          ground truth class labels in the range [0,nlabels].
-    Returns:
-        ece: Tensor, scalar, tf.float32.
-    """
-    with tf.name_scope('expected_calibration_error'):
-        logits = tf.convert_to_tensor(logits)
-        labels_true = tf.convert_to_tensor(labels_true)
-        labels_true = tf.cast(labels_true, dtype=tf.int64)
-
-        # Compute empirical counts over the events defined by the sets
-        # {incorrect,correct}x{0,1,..,num_bins-1}, as well as the empirical averages
-        # of predicted probabilities in each probability bin.
-        event_bin_counts, pmean_observed = _compute_calibration_bin_statistics(
-            num_bins, logits=logits, labels_true=labels_true)
-
-        # Compute the marginal probability of observing a probability bin.
-        event_bin_counts = tf.cast(event_bin_counts, tf.float32)
-        bin_n = tf.reduce_sum(event_bin_counts, axis=0)
-        pbins = bin_n / tf.reduce_sum(bin_n)  # Compute the marginal bin probability
-
-        # Compute the marginal probability of making a correct decision given an
-        # observed probability bin.
-        tiny = np.finfo(np.float32).tiny
-        pcorrect = event_bin_counts[1, :] / (bin_n + tiny)
-
-        # Compute the ESE statistic which is supposed to be analagous to brier score
-        ese = tf.reduce_sum(pbins * tf.square(pcorrect - pmean_observed))
-    return ese
 
 
-# In[21]:
-
-
-# Instantiate an optimizer.
-optimizer = keras.optimizers.SGD(learning_rate=1e-2)
-# cal_optimizer = keras.optimizers.SGD(learning_rate=1e-8)
-
-# Instantiate a loss function.
 cce_loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
-num_bins=10
-gamma = 10**0
-def loss_fn(y_batch_train, logits, verbose=False): 
-    cce = cce_loss_fn(y_batch_train, logits) 
-    ese = tf.multiply(gamma, computeESE(num_bins, logits=logits, labels_true=y_batch_train))
-    if verbose:
-        print(f"Training cce, ese, loss (for one batch): {cce:.4f}, {ese:.4f}, {cce+ese:.4f}")
 
-#     return tf.add(cce, ese)
-    return ese
+class modelTrain():
+    def __init__(self, gamma=1, lr=10e-3, epochs=10): 
+        self.gamma = gamma 
+        self.lr = lr 
+        self.epochs = epochs
+        self.num_bins=10 #TODO mess with this later t
 
-epochs = 5
+        self.logs = {'ese' : self.computeESE,
+                        'cce' : cce_loss_fn,
+                        'acc' : tf.keras.metrics.Accuracy()
+                        }
+        self.metrics = { }
+        for metric in self.logs.keys(): 
+            self.metrics[metric] = []
+            self.metrics["val_" + metric] = []
+
+        self.training_loop()
+    def save_training_graph(self, path):
+        metrics = [x for x in self.logs.keys()]
+        
+        f, axs = plt.subplots(1, len(metrics), figsize=(15,5))
+        # clear_output(wait=True)
+
+        for i, metric in enumerate(metrics):
+            axs[i].plot(range(1, self.epochs + 1), 
+                        self.metrics[metric], 
+                        label=metric)
+            axs[i].plot(range(1, self.epochs + 1), 
+                            self.metrics['val_' + metric], 
+                            label='val_' + metric)
+            axs[i].legend()
+            axs[i].grid()
+
+        plt.tight_layout()
+        plt.savefig(path)
+
+    def computeESE(self, labels_true=None, logits=None): 
+        """
+        Args:
+            num_bins: int, number of probability bins to compute oberved likelyhoods of correctness, e.g. 10.
+            logits: Tensor, (n,nlabels), with logits for n instances and nlabels.
+            labels_true: Tensor, (n,), with tf.int32 or tf.int64 elements containing
+              ground truth class labels in the range [0,nlabels].
+        Returns:
+            ece: Tensor, scalar, tf.float32.
+        """
+        with tf.name_scope('expected_calibration_error'):
+            logits = tf.convert_to_tensor(logits)
+            labels_true = tf.convert_to_tensor(labels_true)
+            labels_true = tf.cast(labels_true, dtype=tf.int64)
+
+            # Compute empirical counts over the events defined by the sets
+            # {incorrect,correct}x{0,1,..,num_bins-1}, as well as the empirical averages
+            # of predicted probabilities in each probability bin.
+            event_bin_counts, pmean_observed = _compute_calibration_bin_statistics(
+                self.num_bins, logits=logits, labels_true=labels_true)
+
+            # Compute the marginal probability of observing a probability bin.
+            event_bin_counts = tf.cast(event_bin_counts, tf.float32)
+            bin_n = tf.reduce_sum(event_bin_counts, axis=0)
+            pbins = bin_n / tf.reduce_sum(bin_n)  # Compute the marginal bin probability
+
+            # Compute the marginal probability of making a correct decision given an
+            # observed probability bin.
+            tiny = np.finfo(np.float32).tiny
+            pcorrect = event_bin_counts[1, :] / (bin_n + tiny)
+
+            # Compute the ESE statistic which is supposed to be analagous to brier score
+            ese = tf.reduce_sum(pbins * tf.square(pcorrect - pmean_observed))
+        return ese
+
+    def loss_fn(self, y_batch_train, logits, verbose=False): 
+            cce = cce_loss_fn(y_batch_train, logits) 
+            ese = tf.multiply(self.gamma, self.computeESE(labels_true=y_batch_train, logits=logits))
+            if verbose:
+                print(f"Training cce, ese, loss (for one batch): {cce:.4f}, {ese:.4f}, {cce+ese:.4f}")
+
+            return tf.add(cce, ese)
 
 
-# In[22]:
+    def training_loop(self): 
+        # Instantiate an optimizer.
+        optimizer = keras.optimizers.SGD(learning_rate=self.lr)
 
+        for epoch in range(self.epochs):
+            print("\nStart of epoch %d" % (epoch,))
+            # Iterate over the batches of the dataset.
+            for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
+                with tf.GradientTape() as tape:
 
-for epoch in range(epochs):
-    print("\nStart of epoch %d" % (epoch,))
-    # Iterate over the batches of the dataset.
-    for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
-        with tf.GradientTape() as tape:
-
-            logits = model(x_batch_train, training=True)  # Logits for this minibatch
-            loss_value = loss_fn(y_batch_train, logits, verbose =(step % 200 == 0)) #verbose every 200 batches
-
-        grads = tape.gradient(loss_value, model.trainable_weights)
-        optimizer.apply_gradients(zip(grads, model.trainable_weights))
-
-    
-
+                    logits = model(x_batch_train, training=True)  # Logits for this minibatch
+                    loss_value = self.loss_fn(y_batch_train, logits, verbose =False) 
+                grads = tape.gradient(loss_value, model.trainable_weights)
+                optimizer.apply_gradients(zip(grads, model.trainable_weights))
+            #save vars to plot later
+            for metric in self.logs.keys():
+                    metric_func = self.logs[metric]
+                    # train_metric = 1
+                    # val_metric = metric_func(x_val, y_val)
+                    train_metric = 5 
+                    val_metric = 4
+                    self.metrics[metric].append(train_metric)
+                    self.metrics["val_" + metric].append(val_metric)
 
 # In[ ]:
 
+def main(): 
 
+    # gammas = [10 **i for i in range(-3, 3)]
+    # learning_rates = [10**i for i in range(-5, -1)]
+    # epochs = 
+    gammas = [1]
+    learning_rates = [10e-3]
+    epochs = 2
+    for i in gammas: 
+        for j in learning_rates:
+            train = modelTrain(gamma=i, lr=j, epochs=epochs)
+            graph_path = f'/home/thlarsen/ood_detection/learn_uncertainty/training_plots/mnist_calibrate/cal({i})({j}).png'
+            train.save_training_graph(graph_path)
 
+if __name__ == "__main__": 
+    main()
 
