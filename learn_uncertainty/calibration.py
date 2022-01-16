@@ -122,7 +122,7 @@ class modelTrain():
 
         self.logs = {'ese' : self.computeESE,
                         'cce' : cce_loss_fn,
-                        'acc' : tf.keras.metrics.Accuracy()
+                        'acc' : tf.keras.metrics.CategoricalAccuracy()
                         }
         self.metrics = { }
         for metric in self.logs.keys(): 
@@ -136,7 +136,9 @@ class modelTrain():
         f, axs = plt.subplots(1, len(metrics), figsize=(15,5))
         # clear_output(wait=True)
 
-        for i, metric in enumerate(metrics):
+        for i, metric in enumerate(self.logs.keys()):
+        	# print(self.metrics[metric])
+        	# print(self.metrics['val_' + metric])
             axs[i].plot(range(1, self.epochs + 1), 
                         self.metrics[metric], 
                         label=metric)
@@ -210,10 +212,10 @@ class modelTrain():
             #save vars to plot later
             for metric in self.logs.keys():
                     metric_func = self.logs[metric]
-                    # train_metric = 1
-                    # val_metric = metric_func(x_val, y_val)
-                    train_metric = 5 
-                    val_metric = 4
+                    train_metric = 1
+                    val_metric = metric_func(y_val, model(x_val))
+                    # train_metric = 5 
+                    # val_metric = 4
                     self.metrics[metric].append(train_metric)
                     self.metrics["val_" + metric].append(val_metric)
 
