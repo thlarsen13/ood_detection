@@ -137,8 +137,8 @@ class modelTrain():
         # clear_output(wait=True)
 
         for i, metric in enumerate(self.logs.keys()):
-        	# print(self.metrics[metric])
-        	# print(self.metrics['val_' + metric])
+            print(self.metrics[metric])
+            print(self.metrics['val_' + metric])
             axs[i].plot(range(1, self.epochs + 1), 
                         self.metrics[metric], 
                         label=metric)
@@ -206,18 +206,21 @@ class modelTrain():
                 with tf.GradientTape() as tape:
 
                     logits = model(x_batch_train, training=True)  # Logits for this minibatch
-                    loss_value = self.loss_fn(y_batch_train, logits, verbose =False) 
+                    loss_value = cce_loss_fn(y_batch_train, logits) 
                 grads = tape.gradient(loss_value, model.trainable_weights)
                 optimizer.apply_gradients(zip(grads, model.trainable_weights))
+                if step % 200 == 0: 
+                    print(f'loss at epoch {epoch}, step {step}: {loss_value}')
+               
             #save vars to plot later
-            for metric in self.logs.keys():
-                    metric_func = self.logs[metric]
-                    train_metric = 1
-                    val_metric = metric_func(y_val, model(x_val))
-                    # train_metric = 5 
-                    # val_metric = 4
-                    self.metrics[metric].append(train_metric)
-                    self.metrics["val_" + metric].append(val_metric)
+            # for metric in self.logs.keys():
+            #         metric_func = self.logs[metric]
+            #         train_metric = 1
+            #         val_metric = metric_func(y_val, model(x_val))
+            #         # train_metric = 5 
+            #         # val_metric = 4
+            #         self.metrics[metric].append(train_metric)
+            #         self.metrics["val_" + metric].append(val_metric)
 
 # In[ ]:
 
@@ -226,9 +229,9 @@ def main():
     # gammas = [10 **i for i in range(-3, 3)]
     # learning_rates = [10**i for i in range(-5, -1)]
     # epochs = 
-    gammas = [1]
+    gammas = [0]
     learning_rates = [10e-3]
-    epochs = 2
+    epochs = 20
     for i in gammas: 
         for j in learning_rates:
             train = modelTrain(gamma=i, lr=j, epochs=epochs)
