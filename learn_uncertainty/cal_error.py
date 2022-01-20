@@ -38,7 +38,7 @@ class ExpectedCalibrationError(Loss):
           pred, pred_y[:, tf.newaxis], batch_dims=1)  # p(pred_y | x)
         prob_y = tf.reshape(prob_y, (ps.size(prob_y),))
 
-        # Compute b/z histogram statistics:
+        # Compute b/z? histogram statistics:
         # bz[0,bin] contains counts of incorrect predictions in the probability bin.
         # bz[1,bin] contains counts of correct predictions in the probability bin.
         bins = tf.histogram_fixed_width_bins(prob_y, [0.0, 1.0], nbins=self.num_bins)
