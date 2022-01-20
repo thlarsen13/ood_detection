@@ -16,7 +16,9 @@ import numpy as np
 from tensorflow.keras.losses import Loss
 from cal_error import ExpectedCalibrationError
 import time 
+from scipy.io import loadmat
 
+verbose = False
 """
 ## Introduction
 
@@ -77,6 +79,14 @@ val_dataset = val_dataset.batch(batch_size)
 
 """
 
+Load SVHN
+
+"""
+
+train_raw = loadmat('../input/svhndataset/train_32x32.mat')
+test_raw = loadmat('../input/svhndataset/test_32x32.mat')
+"""
+
 You can readily reuse the built-in metrics (or custom ones you wrote) in such training
 loops written from scratch. Here's the flow:
 
@@ -104,7 +114,7 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None):
     cce_loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     ese_loss_fn = ExpectedCalibrationError(weight=w)
 
-    ECE = []
+    ECE_dict = { i : [] for i in range(epochs)}
     ACC = []
 
     def loss_fn(y_batch_train, logits, verbose=False): 
@@ -113,7 +123,7 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None):
                 if verbose:
                     print(f"Training cce, ese, loss (for one batch): {cce:.4f}, {ese:.4f}, {cce+ese:.4f}")
 
-                ECE.append(ese.numpy())
+                ECE_dict[epoch].append(ese.numpy())
                 return tf.add(cce, ese)
 
     # Prepare the metrics.
@@ -124,9 +134,9 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None):
     Here's our training & evaluation loop:
     """
 
-    epochs = 10
     for epoch in range(epochs):
-        print("\nStart of epoch %d" % (epoch,))
+        if verbose: 
+            print("\nStart of epoch %d" % (epoch,))
         start_time = time.time()
 
         # Iterate over the batches of the dataset.
@@ -141,7 +151,7 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None):
             train_acc_metric.update_state(y_batch_train, logits)
 
             # Log every 200 batches.
-            if step % 200 == 0:
+            if verbose and step % 200 == 0:
                 print(
                     "Training loss (for one batch) at step %d: %.4f"
                     % (step, float(loss_value))
@@ -150,7 +160,8 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None):
 
         # Display metrics at the end of each epoch.
         train_acc = train_acc_metric.result()
-        print("Training acc over epoch: %.4f" % (float(train_acc),))
+        if verbose: 
+            print("Training acc over epoch: %.4f" % (float(train_acc),))
         ACC.append(train_acc.numpy())
         # Reset training metrics at the end of each epoch
         train_acc_metric.reset_states()
@@ -164,19 +175,21 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None):
 
         val_acc = val_acc_metric.result()
         val_acc_metric.reset_states()
-        print("Validation acc: %.4f" % (float(val_acc),))
-        print("Time taken: %.2fs" % (time.time() - start_time))
+        if verbose: 
+            print("Validation acc: %.4f" % (float(val_acc),))
+            print("Time taken: %.2fs" % (time.time() - start_time))
     #TODO Add EVAL
     if graph_path is not None: 
-        print(f"\n\n\n@@@ {graph_path}ECE: {ECE}, ACC: {ACC}")
+        ECE = [np.mean(ECE_dict[i]) for i in range(epochs)]
+        print(f"\n\n\n@@@ {graph_path}\n ECE ({len(ECE)}): {ECE} \nACC ({len(ACC)}): {ACC}")
 
 def main(): 
 
-    # gammas = [10 **i for i in range(-3, 3)]
+    weights = [10 **i for i in range(-3, 3)]
+    learning_rates = [10**i for i in range(-5, -1)]
+
+    # weights = [10 **i for i in range(-3, 3)]
     # learning_rates = [10**i for i in range(-5, -1)]
-    # epochs = 
-    weights = [1]
-    learning_rates = [10e-3]
     epochs = 20
     for lr in learning_rates: 
         for w in weights:

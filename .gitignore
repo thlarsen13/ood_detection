@@ -3,3 +3,6 @@ bayes_env/
 venv/
 research_log/
 learn_uncertainty/training_plots
+*out.txt
+learn_uncertainty/datasets/
+learn_uncertainty/.ipynb_checkpoints/
