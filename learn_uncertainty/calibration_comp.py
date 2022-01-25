@@ -16,7 +16,6 @@ import numpy as np
 from tensorflow.keras.losses import Loss
 from cal_error import ExpectedCalibrationError
 import time 
-from scipy.io import loadmat
 
 verbose = False
 """
@@ -49,19 +48,19 @@ Let's consider a simple MNIST model:
 
 """
 
-inputs = keras.Input(shape=(784,), name="digits")
-x1 = layers.Dense(64, activation="relu")(inputs)
-x2 = layers.Dense(64, activation="relu")(x1)
-outputs = layers.Dense(10, name="predictions")(x2)
-model = keras.Model(inputs=inputs, outputs=outputs)
-
-
+input_dim = 32*32
 
 # Prepare the training dataset.
 batch_size = 64
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
-x_train = np.reshape(x_train, (-1, 784))
-x_test = np.reshape(x_test, (-1, 784))
+
+x_train = np.pad(x_train, ((0,0),(2,2),(2,2)), 'constant')
+x_test = np.pad(x_test, ((0,0),(2,2),(2,2)), 'constant')
+
+print(x_test.shape)
+x_train = np.reshape(x_train, (-1, input_dim))
+x_test = np.reshape(x_test, (-1, input_dim))
+print(x_test.shape)
 
 # Reserve 10,000 samples for validation.
 x_val = x_train[-10000:]
@@ -77,14 +76,7 @@ train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
 val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
 val_dataset = val_dataset.batch(batch_size)
 
-"""
 
-Load SVHN
-
-"""
-
-train_raw = loadmat('../input/svhndataset/train_32x32.mat')
-test_raw = loadmat('../input/svhndataset/test_32x32.mat')
 """
 
 You can readily reuse the built-in metrics (or custom ones you wrote) in such training
@@ -100,15 +92,15 @@ Let's use this knowledge to compute `SparseCategoricalAccuracy` on validation da
 the end of each epoch:
 """
 
-# Get model
-inputs = keras.Input(shape=(784,), name="digits")
-x = layers.Dense(64, activation="relu", name="dense_1")(inputs)
-x = layers.Dense(64, activation="relu", name="dense_2")(x)
-outputs = layers.Dense(10, name="predictions")(x)
-model = keras.Model(inputs=inputs, outputs=outputs)
 
+def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None): 
 
-def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None): 
+    inputs = keras.Input(shape=(input_dim,), name="digits")
+    x1 = layers.Dense(64, activation="relu")(inputs)
+    x2 = layers.Dense(64, activation="relu")(x1)
+    outputs = layers.Dense(10, name="predictions")(x2)
+    model = keras.Model(inputs=inputs, outputs=outputs)
+
     optimizer = keras.optimizers.SGD(learning_rate=lr)
     # Instantiate a loss function.
     cce_loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
@@ -121,7 +113,7 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None):
                 cce = cce_loss_fn(y_batch_train, logits) 
                 ese = ese_loss_fn(y_batch_train, logits)
                 if verbose:
-                    print(f"Training cce, ese, loss (for one batch): {cce:.4f}, {ese:.4f}, {cce+ese:.4f}")
+                    print(f'Training cce, ese, loss (for one batch): {cce:.4f}, {ese:.4f}, {cce+ese:.4f}')
 
                 ECE_dict[epoch].append(ese.numpy())
                 return tf.add(cce, ese)
@@ -182,19 +174,24 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None):
     if graph_path is not None: 
         ECE = [np.mean(ECE_dict[i]) for i in range(epochs)]
         print(f"\n\n\n@@@ {graph_path}\n ECE ({len(ECE)}): {ECE} \nACC ({len(ACC)}): {ACC}")
+    if model_save_path is not None: 
+        # model.compile(optimizer="Adam", loss=tf.keras.losses.CategoricalCrossentropy)
+        model.save(model_save_path)
 
 def main(): 
 
     weights = [10 **i for i in range(-3, 3)]
     learning_rates = [10**i for i in range(-5, -1)]
 
-    # weights = [10 **i for i in range(-3, 3)]
-    # learning_rates = [10**i for i in range(-5, -1)]
+    # weights = [1]
+    # learning_rates = [10**-3]
+    prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
     epochs = 20
     for lr in learning_rates: 
         for w in weights:
-            graph_path = f'/home/thlarsen/ood_detection/learn_uncertainty/training_plots/mnist_calibrate/cal(lr={lr})(w={w}).png'
-            train_attempt(lr=lr, w=w, epochs=epochs, graph_path=graph_path)
+            model_save_path = f'{prefix}saved_weights/mnist_calibrate/cal(lr={lr})(w={w})'
+            graph_path = f'{prefix}training_plots/mnist_calibrate/cal(lr={lr})(w={w}).png'
+            train_attempt(lr=lr, w=w, epochs=epochs, graph_path=graph_path, model_save_path=model_save_path)
 
 if __name__ == "__main__": 
     main()
