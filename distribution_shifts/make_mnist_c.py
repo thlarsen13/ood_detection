@@ -201,8 +201,8 @@ def defocus_blur(x, severity=1):
 def motion_blur(x, severity=1):
     c = [(6,1), (6,1.5), (6,2), (8,2), (9,2.5)][severity - 1]
 
-    p_transform = trn.ToPILImage()
-    x = p_transform(x.reshape(3, 32, 32))
+    # p_transform = trn.ToPILImage()
+    # x = p_transform(x.reshape(3, 32, 32))
     output = BytesIO()
     x.save(output, format='PNG')
     x = MotionImage(blob=output.getvalue())
@@ -469,7 +469,7 @@ folder_path = '/home/thlarsen/ood_detection/distribution_shifts/mnist_c/'
 p = trn.Pad(2)
 i = 0
 for method_name in d.keys():
-    if i < 12: 
+    if i < 5: 
         i += 1
         continue 
     i += 1 
@@ -492,12 +492,5 @@ for method_name in d.keys():
     np.save(folder_path + 'labels.npy',
             np.array(labels).astype(np.uint8))
 
-folder_path = '/home/thlarsen/ood_detection/distribution_shifts/mnist_c/'
-
-def load_mnist_c(method_name): 
-	data = np.load(folder_path + d[method_name].__name__ + '.npy')
-	labels = np.load(folder_path + 'labels.npy')
-    sev = np.load(folder_path + d[method_name].__name__ + '_sev.npy')
-	return data, labels, sev
 
 
