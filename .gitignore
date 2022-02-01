@@ -2,7 +2,14 @@ seqio/
 bayes_env/
 venv/
 research_log/
-learn_uncertainty/training_plots
+learn_uncertainty/training_plots/
 *out.txt
 learn_uncertainty/datasets/
-learn_uncertainty/.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+learn_uncertainty/training_runs/
+mnist/
+*__pycache__/
+distribution_shifts/mnist_c/
+distribution_shifts/robustness/
+distribution_shifts/shift_env/
+learn_uncertainty/saved_weights/

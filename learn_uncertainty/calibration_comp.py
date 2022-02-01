@@ -91,8 +91,6 @@ loops written from scratch. Here's the flow:
 Let's use this knowledge to compute `SparseCategoricalAccuracy` on validation data at
 the end of each epoch:
 """
-
-
 def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None): 
 
     inputs = keras.Input(shape=(input_dim,), name="digits")
@@ -177,22 +175,28 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None
     if model_save_path is not None: 
         # model.compile(optimizer="Adam", loss=tf.keras.losses.CategoricalCrossentropy)
         model.save(model_save_path)
+    return ACC[-1], ECE[-1]
 
 def main(): 
 
     weights = [10 **i for i in range(-3, 3)]
     learning_rates = [10**i for i in range(-5, -1)]
+    overall_results = [['lrs']+weights]
 
     # weights = [1]
     # learning_rates = [10**-3]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
     epochs = 20
     for lr in learning_rates: 
+        overall_results.append([f'lr = {lr}'])
         for w in weights:
             model_save_path = f'{prefix}saved_weights/mnist_calibrate/cal(lr={lr})(w={w})'
             graph_path = f'{prefix}training_plots/mnist_calibrate/cal(lr={lr})(w={w}).png'
-            train_attempt(lr=lr, w=w, epochs=epochs, graph_path=graph_path, model_save_path=model_save_path)
+            acc, ece = train_attempt(lr=lr, w=w, epochs=epochs, graph_path=graph_path, model_save_path=model_save_path)
+            overall_results[-1].append((acc, ece))
 
+    print('\n'.join([''.join(['{:4}'.format(item) for item in row]) 
+      for row in overall_results]))
 if __name__ == "__main__": 
     main()
 
