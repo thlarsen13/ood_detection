@@ -1,13 +1,4 @@
-"""
-Title: Writing a training loop from scratch
-Author: [fchollet](https://twitter.com/fchollet)
-Date created: 2019/03/01
-Last modified: 2020/04/15
-Description: Complete guide to writing low-level training & evaluation loops.
-"""
-"""
-## Setup
-"""
+
 
 import tensorflow as tf
 from tensorflow import keras
@@ -18,35 +9,6 @@ from cal_error import ExpectedCalibrationError
 import time 
 
 verbose = False
-"""
-## Introduction
-
-Keras provides default training and evaluation loops, `fit()` and `evaluate()`.
-Their usage is covered in the guide
-[Training & evaluation with the built-in methods](/guides/training_with_built_in_methods/).
-
-If you want to customize the learning algorithm of your model while still leveraging
-the convenience of `fit()`
-(for instance, to train a GAN using `fit()`), you can subclass the `Model` class and
-implement your own `train_step()` method, which
-is called repeatedly during `fit()`. This is covered in the guide
-[Customizing what happens in `fit()`](/guides/customizing_what_happens_in_fit/).
-
-Now, if you want very low-level control over training & evaluation, you should write
-your own training & evaluation loops from scratch. This is what this guide is about.
-"""
-
-"""
-## Using the `GradientTape`: a first end-to-end example
-
-Calling a model inside a `GradientTape` scope enables you to retrieve the gradients of
-the trainable weights of the layer with respect to a loss value. Using an optimizer
-instance, you can use these gradients to update these variables (which you can
-retrieve using `model.trainable_weights`).
-
-Let's consider a simple MNIST model:
-
-"""
 
 input_dim = 32*32
 
@@ -77,20 +39,6 @@ val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
 val_dataset = val_dataset.batch(batch_size)
 
 
-"""
-
-You can readily reuse the built-in metrics (or custom ones you wrote) in such training
-loops written from scratch. Here's the flow:
-
-- Instantiate the metric at the start of the loop
-- Call `metric.update_state()` after each batch
-- Call `metric.result()` when you need to display the current value of the metric
-- Call `metric.reset_states()` when you need to clear the state of the metric
-(typically at the end of an epoch)
-
-Let's use this knowledge to compute `SparseCategoricalAccuracy` on validation data at
-the end of each epoch:
-"""
 def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None): 
 
     inputs = keras.Input(shape=(input_dim,), name="digits")
