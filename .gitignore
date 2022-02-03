@@ -13,3 +13,4 @@ distribution_shifts/mnist_c/
 distribution_shifts/robustness/
 distribution_shifts/shift_env/
 learn_uncertainty/saved_weights/
+*dev*

@@ -7,6 +7,7 @@ from cal_error import ExpectedCalibrationError
 import time 
 from datetime import datetime
 from tensorflow.keras.applications import *
+from tqdm import tqdm
 
 verbose = True
 
@@ -118,30 +119,36 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None
     if model_save_path is not None: 
         # model.compile(optimizer="Adam", loss=tf.keras.losses.CategoricalCrossentropy)
         model.save(model_save_path)
-    return ACC[-1], ECE[-1]
+    return round(ACC[-1], 4), round(ECE[-1], 4)
 
 def main(): 
 
-    # weights = [10 **i for i in range(-3, 3)]
-    # learning_rates = [10**i for i in range(-5, -1)]
+    weights = [10 **i for i in range(-3, 1)]
+    learning_rates = [10**i for i in range(-5, -2)]
 
-    weights = [1]
-    learning_rates = [10**-3]
+    # weights = [1]
+    # learning_rates = [10**-3]
 
-    overall_results = [['lrs']+weights]
+    overall_results = [['l/w']+ weights]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
     epochs = 20
 
-    for lr in learning_rates: 
-        overall_results.append([f'lr = {lr}'])
-        for w in weights:
-            model_save_path = f'{prefix}saved_weights/cifar_calibrate/cal(lr={lr})(w={w})'
-            graph_path = f'{prefix}training_plots/cifar_calibrate/cal(lr={lr})(w={w}).png'
-            acc, ece = train_attempt(lr=lr, w=w, epochs=epochs, graph_path=graph_path, model_save_path=model_save_path)
-            overall_results[-1].append((acc, ece))
+    with tqdm(total=len(learning_rates) * len(weights)) as pbar:
+        for lr in learning_rates: 
+            overall_results.append([lr])
+            for w in weights:
+                model_save_path = f'{prefix}saved_weights/cifar_calibrate/cal(lr={lr})(w={w})'
+                graph_path = f'{prefix}training_plots/cifar_calibrate/cal(lr={lr})(w={w}).png'
+                acc, ece = train_attempt(lr=lr, w=w, epochs=epochs, graph_path=graph_path, model_save_path=model_save_path)
+                overall_results[-1].append((acc, ece))
+                pbar.update(1)
 
-    print('\n'.join([''.join(['{:4}'.format(item) for item in row]) 
-      for row in overall_results]))
+    #array nonsense to make it print the array in a readable format
+    s = [[str(e) for e in row] for row in overall_results]
+    lens = [max(map(len, col)) for col in zip(*s)]
+    fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
+    table = [fmt.format(*row) for row in s]
+    print('\n'.join(table))
 if __name__ == "__main__": 
     main()
 
