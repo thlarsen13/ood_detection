@@ -452,16 +452,20 @@ for method_name in d.keys():
     print('Creating images for the corruption', method_name)
     cifar_c, labels, sev = [], [], []
     i += 1
-    if i < 8: 
-        continue 
-    for severity in range(1,6):
+    # if i < 8: 
+    #     continue 
+    for severity in range(0,6):
         corruption = lambda clean_img: d[method_name](clean_img, severity)
 
         for img, label in zip(test_data.data, test_data.targets):
+
             labels.append(label)
             # print(type(img))
             # exit()
-            cifar_c.append(np.uint8(corruption(trn.ToPILImage()(img))))
+            if severity == 0: 
+                cifar_c.append(np.uint8(img))
+            else: 
+                cifar_c.append(np.uint8(corruption(trn.ToPILImage()(img))))
             sev.append(severity)
 
     np.save(folder_path + d[method_name].__name__ + '_sev.npy',np.array(sev))

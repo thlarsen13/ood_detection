@@ -2,13 +2,28 @@ import numpy as np
 from tensorflow import keras
 import tensorflow as tf
 
-folder_path = '/home/thlarsen/ood_detection/distribution_shifts/mnist_c/'
-
+def foo(): 
+    return "foo" 
+    
 def load_mnist_c(method_name): 
+    return load_dataset_c(method_name, 'mnist_c')
+def load_cifar_c(method_name): 
+    return load_dataset_c(method_name, 'cifar_c')
+
+def load_dataset_c(method_name, dataset):
+    folder_path = f'/home/thlarsen/ood_detection/distribution_shifts/{dataset}/'
     data = np.load(folder_path + method_name + '.npy')
     labels = np.load(folder_path + 'labels.npy')
     sev = np.load(folder_path + method_name + '_sev.npy')
     return data, labels, sev
+
+def load_cifar_model(lr = 10**-3, w = 1): 
+    prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
+    model_save_path = f'{prefix}saved_weights/cifar_calibrate/cal(lr={lr})(w={w})'
+    model = keras.models.load_model(model_save_path)
+    return model 
+
+
 def load_mnist_by_sev(method_name): 
     data, labels, sev = load_mnist_c(method_name)
     step = 10000
