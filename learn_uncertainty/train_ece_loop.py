@@ -1,5 +1,3 @@
-
-
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -7,47 +5,14 @@ import numpy as np
 from tensorflow.keras.losses import Loss
 from cal_error import ExpectedCalibrationError
 import time 
-
-verbose = False
-
-input_dim = 32*32
-
-# Prepare the training dataset.
-batch_size = 64
-(x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
-
-x_train = np.pad(x_train, ((0,0),(2,2),(2,2)), 'constant')
-x_test = np.pad(x_test, ((0,0),(2,2),(2,2)), 'constant')
-
-print(x_test.shape)
-x_train = np.reshape(x_train, (-1, input_dim))
-x_test = np.reshape(x_test, (-1, input_dim))
-print(x_test.shape)
-
-# Reserve 10,000 samples for validation.
-x_val = x_train[-10000:]
-y_val = y_train[-10000:]
-x_train = x_train[:-10000]
-y_train = y_train[:-10000]
-
-# Prepare the training dataset.
-train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
-
-# Prepare the validation dataset.
-val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
-val_dataset = val_dataset.batch(batch_size)
+from datetime import datetime
+from tensorflow.keras.applications import *
+from tqdm import tqdm
 
 
-def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None): 
+def train_attempt(model, train_dataset, val_dataset, lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None, verbose=False): 
 
-    inputs = keras.Input(shape=(input_dim,), name="digits")
-    x1 = layers.Dense(64, activation="relu")(inputs)
-    x2 = layers.Dense(64, activation="relu")(x1)
-    outputs = layers.Dense(10, name="predictions")(x2)
-    model = keras.Model(inputs=inputs, outputs=outputs)
-
-    optimizer = keras.optimizers.SGD(learning_rate=lr)
+    optimizer = keras.optimizers.Adam(learning_rate=lr)
     # Instantiate a loss function.
     cce_loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     ese_loss_fn = ExpectedCalibrationError(weight=w)
@@ -56,13 +21,16 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None
     ACC = []
 
     def loss_fn(y_batch_train, logits, verbose=False): 
-                cce = cce_loss_fn(y_batch_train, logits) 
-                ese = ese_loss_fn(y_batch_train, logits)
-                if verbose:
-                    print(f'Training cce, ese, loss (for one batch): {cce:.4f}, {ese:.4f}, {cce+ese:.4f}')
+        # print(y_batch_train.shape)
+        # print(logits.shape)
+        # exit()
+        cce = cce_loss_fn(y_batch_train, logits) 
+        ese = ese_loss_fn(y_batch_train, logits)
+        if verbose:
+            print(f'Training cce, ese, loss (for one batch): {cce:.4f}, {ese:.4f}, {cce+ese:.4f}')
 
-                ECE_dict[epoch].append(ese.numpy())
-                return tf.add(cce, ese)
+        ECE_dict[epoch].append(ese.numpy())
+        return tf.add(cce, tf.multiply(w, ese))
 
     # Prepare the metrics.
     train_acc_metric = keras.metrics.SparseCategoricalAccuracy()
@@ -79,6 +47,9 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None
 
         # Iterate over the batches of the dataset.
         for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
+            # print(x_batch_train.shape)
+            # print(y_batch_train.shape)
+            # exit()
             with tf.GradientTape() as tape:
                 logits = model(x_batch_train, training=True)
                 loss_value = loss_fn(y_batch_train, logits)
@@ -123,28 +94,12 @@ def train_attempt(lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None
     if model_save_path is not None: 
         # model.compile(optimizer="Adam", loss=tf.keras.losses.CategoricalCrossentropy)
         model.save(model_save_path)
-    return ACC[-1], ECE[-1]
+    return round(ACC[-1], 4), round(ECE[-1], 4)
 
-def main(): 
 
-    weights = [10 **i for i in range(-3, 3)]
-    learning_rates = [10**i for i in range(-5, -1)]
-    overall_results = [['lrs']+weights]
 
-    # weights = [1]
-    # learning_rates = [10**-3]
-    prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 20
-    for lr in learning_rates: 
-        overall_results.append([f'lr = {lr}'])
-        for w in weights:
-            model_save_path = f'{prefix}saved_weights/mnist_calibrate/cal(lr={lr})(w={w})'
-            graph_path = f'{prefix}training_plots/mnist_calibrate/cal(lr={lr})(w={w}).png'
-            acc, ece = train_attempt(lr=lr, w=w, epochs=epochs, graph_path=graph_path, model_save_path=model_save_path)
-            overall_results[-1].append((acc, ece))
 
-    print('\n'.join([''.join(['{:4}'.format(item) for item in row]) 
-      for row in overall_results]))
-if __name__ == "__main__": 
-    main()
+
+
+
 

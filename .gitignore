@@ -1,3 +1,4 @@
+distribution_shifts/cifar_c/
 seqio/
 bayes_env/
 venv/
@@ -14,3 +15,4 @@ distribution_shifts/robustness/
 distribution_shifts/shift_env/
 learn_uncertainty/saved_weights/
 *dev*
+cifar/

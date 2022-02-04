@@ -8,9 +8,7 @@ import torch
 import torchvision.datasets as dset
 import torchvision.transforms as trn
 import torch.utils.data as data
-import torch.nn.functional as F
 import numpy as np
-from tensorflow import keras
 
 from PIL import Image
 
@@ -31,8 +29,6 @@ from scipy.ndimage.interpolation import map_coordinates
 import warnings
 
 warnings.simplefilter("ignore", UserWarning)
-
-N = 32
 
 
 def disk(radius, alias_blur=0.1, dtype=np.float32):
@@ -64,7 +60,7 @@ class MotionImage(WandImage):
 
 
 # modification of https://github.com/FLHerne/mapgen/blob/master/diamondsquare.py
-def plasma_fractal(mapsize=N, wibbledecay=3):
+def plasma_fractal(mapsize=32, wibbledecay=3):
     """
     Generate a heightmap using diamond-square algorithm.
     Return square 2d array, side length 'mapsize', of floats in range 0-255.
@@ -174,8 +170,8 @@ def glass_blur(x, severity=1):
 
     # locally shuffle pixels
     for i in range(c[2]):
-        for h in range(N - c[1], c[1], -1):
-            for w in range(N - c[1], c[1], -1):
+        for h in range(32 - c[1], c[1], -1):
+            for w in range(32 - c[1], c[1], -1):
                 dx, dy = np.random.randint(-c[1], c[1], size=(2,))
                 h_prime, w_prime = h + dy, w + dx
                 # swap
@@ -189,7 +185,8 @@ def defocus_blur(x, severity=1):
 
     x = np.array(x) / 255.
     kernel = disk(radius=c[0], alias_blur=c[1])
-
+    # print(x.shape)
+    # exit()
     channels = []
     for d in range(3):
         channels.append(cv2.filter2D(x[:, :, d], -1, kernel))
@@ -201,8 +198,6 @@ def defocus_blur(x, severity=1):
 def motion_blur(x, severity=1):
     c = [(6,1), (6,1.5), (6,2), (8,2), (9,2.5)][severity - 1]
 
-    # p_transform = trn.ToPILImage()
-    # x = p_transform(x.reshape(3, 32, 32))
     output = BytesIO()
     x.save(output, format='PNG')
     x = MotionImage(blob=output.getvalue())
@@ -212,7 +207,7 @@ def motion_blur(x, severity=1):
     x = cv2.imdecode(np.fromstring(x.make_blob(), np.uint8),
                      cv2.IMREAD_UNCHANGED)
 
-    if x.shape != (N, N):
+    if x.shape != (32, 32):
         return np.clip(x[..., [2, 1, 0]], 0, 255)  # BGR to RGB
     else:  # greyscale to RGB
         return np.clip(np.array([x, x, x]).transpose((1, 2, 0)), 0, 255)
@@ -247,8 +242,8 @@ def frost(x, severity=1):
     frost = cv2.imread(filename)
     frost = cv2.resize(frost, (0, 0), fx=0.2, fy=0.2)
     # randomly crop and convert to rgb
-    x_start, y_start = np.random.randint(0, frost.shape[0] - N), np.random.randint(0, frost.shape[1] - 32)
-    frost = frost[x_start:x_start + N, y_start:y_start + N][..., [2, 1, 0]]
+    x_start, y_start = np.random.randint(0, frost.shape[0] - 32), np.random.randint(0, frost.shape[1] - 32)
+    frost = frost[x_start:x_start + 32, y_start:y_start + 32][..., [2, 1, 0]]
 
     return np.clip(c[0] * np.array(x) + c[1] * frost, 0, 255)
 
@@ -277,7 +272,7 @@ def snow(x, severity=1):
                               cv2.IMREAD_UNCHANGED) / 255.
     snow_layer = snow_layer[..., np.newaxis]
 
-    x = c[6] * x + (1 - c[6]) * np.maximum(x, cv2.cvtColor(x, cv2.COLOR_RGB2GRAY).reshape(N, N, 1) * 1.5 + 0.5)
+    x = c[6] * x + (1 - c[6]) * np.maximum(x, cv2.cvtColor(x, cv2.COLOR_RGB2GRAY).reshape(32, 32, 1) * 1.5 + 0.5)
     return np.clip(x + snow_layer + np.rot90(snow_layer, k=2), 0, 1) * 255
 
 
@@ -377,11 +372,10 @@ def jpeg_compression(x, severity=1):
 
 
 def pixelate(x, severity=1):
-
     c = [0.95, 0.9, 0.85, 0.75, 0.65][severity - 1]
 
-    x = x.resize((int(N * c), int(N * c), 3), PILImage.BOX)
-    x = x.resize((N, N, 3), PILImage.BOX)
+    x = x.resize((int(32 * c), int(32 * c)), PILImage.BOX)
+    x = x.resize((32, 32), PILImage.BOX)
 
     return x
 
@@ -424,7 +418,7 @@ def elastic_transform(image, severity=1):
 
 import collections
 
-print('Using MNIST data')
+print('Using CIFAR-10 data')
 
 d = collections.OrderedDict()
 d['Gaussian Noise'] = gaussian_noise
@@ -440,7 +434,7 @@ d['Fog'] = fog
 d['Brightness'] = brightness
 d['Contrast'] = contrast
 d['Elastic'] = elastic_transform
-# d['Pixelate'] = pixelate
+d['Pixelate'] = pixelate
 d['JPEG'] = jpeg_compression
 
 d['Speckle Noise'] = speckle_noise
@@ -449,48 +443,32 @@ d['Spatter'] = spatter
 d['Saturate'] = saturate
 
 
-# test_data = dset.CIFAR10('/share/data/vision-greg/cifarpy', train=False)
-test_data = dset.MNIST(root="/home/thlarsen/ood_detection/mnist", 
-                                        train=False,
-                                        download=True)
-
-# data_loader = torch.utils.data.DataLoader(mnist_data,
-                                          # batch_size=4,
-                                          # shuffle=True,
-                                          # num_workers=args.nThreads)
-
-# x_train_m = np.pad(x_train, ((0,0),(2,2),(2,2)), 'constant')
-
-# print(x_train_m.shape())
-# exit() 
+test_data = dset.CIFAR10("/home/thlarsen/ood_detection/cifar", train=False, download=True)
 convert_img = trn.Compose([trn.ToTensor(), trn.ToPILImage()])
+folder_path = '/home/thlarsen/ood_detection/distribution_shifts/cifar_c/'
 
-folder_path = '/home/thlarsen/ood_detection/distribution_shifts/mnist_c/'
-p = trn.Pad(2)
 i = 0
 for method_name in d.keys():
-    if i < 13: 
-        i += 1
-        continue 
-    i += 1 
     print('Creating images for the corruption', method_name)
-    mnist_c, labels, sev = [], [], []
-
+    cifar_c, labels, sev = [], [], []
+    i += 1
+    if i < 8: 
+        continue 
     for severity in range(1,6):
         corruption = lambda clean_img: d[method_name](clean_img, severity)
 
         for img, label in zip(test_data.data, test_data.targets):
-            img = p(img).reshape(1, 32, 32).repeat(3, 1, 1)
             labels.append(label)
-            mnist_c.append(np.uint8(corruption(trn.ToPILImage()(img))))
+            # print(type(img))
+            # exit()
+            cifar_c.append(np.uint8(corruption(trn.ToPILImage()(img))))
             sev.append(severity)
 
     np.save(folder_path + d[method_name].__name__ + '_sev.npy',np.array(sev))
     np.save(folder_path + d[method_name].__name__ + '.npy',
-            np.array(mnist_c).astype(np.uint8))
+            np.array(cifar_c).astype(np.uint8))
 
     np.save(folder_path + 'labels.npy',
             np.array(labels).astype(np.uint8))
-
 
 
