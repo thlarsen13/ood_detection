@@ -35,4 +35,5 @@ of images from MNIST.
 
 
 ![Mnist Results](https://user-images.githubusercontent.com/47545823/152888270-e9cb59f7-a118-4b32-85da-813706e192b1.png)
+
 Using the standard method, we see that as the magnitude of the shift, calibration decreases, as one would expect. However, with the proposed method, ECE is both significantly reduced, and the trend is less increasing. 
