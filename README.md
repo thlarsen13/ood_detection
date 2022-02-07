@@ -19,7 +19,9 @@ The **Expected Calibration Error (ECE)** of a model is:
 <img width="240" alt="Screen Shot 2022-02-07 at 6 21 25 PM" src="https://user-images.githubusercontent.com/47545823/152888973-4786e7df-5345-461f-86d2-c325b8b672ed.png">
 
 This suggests a natural objective function: 
+
 <img width="240" alt="Screen Shot 2022-02-07 at 6 24 16 PM" src="https://user-images.githubusercontent.com/47545823/152889107-a3afd1e6-54d7-4fb4-aa56-41d9ba2fbadc.png">
+
 which is normal cross entropy, with an additional term minimizing empirical deviation from perfect calibration. 
 
 Models here were trained using Tensorflow 2.7.0, CUDA 11.0, and a GeForce RTX 2080 Ti GPU. 
