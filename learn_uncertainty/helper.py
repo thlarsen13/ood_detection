@@ -4,7 +4,7 @@ import tensorflow as tf
 
 def foo(): 
     return "foo" 
-    
+
 def load_mnist_c(method_name): 
     return load_dataset_c(method_name, 'mnist_c')
 def load_cifar_c(method_name): 
@@ -16,6 +16,14 @@ def load_dataset_c(method_name, dataset):
     labels = np.load(folder_path + 'labels.npy')
     sev = np.load(folder_path + method_name + '_sev.npy')
     return data, labels, sev
+
+def load_cifar_c_sev(method_name):
+    data, labels, sev = load_cifar_c(method_name)
+    step = 10000
+    data_by_sev = {}
+    for i in range(0, data.shape[0], step): 
+        data_by_sev[sev[i]] = [data[i:i+step], labels[i:i+step]]
+    return data_by_sev
 
 def load_cifar_model(lr = 10**-3, w = 1): 
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'

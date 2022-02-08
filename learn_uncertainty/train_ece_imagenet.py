@@ -8,14 +8,16 @@ import time
 from datetime import datetime
 from tensorflow.keras.applications import *
 from tqdm import tqdm
-from train_ece_shifted import train_attempt
+# from train_ece_shifted import train_attempt
+from train_ece_loop import train_attempt
+
 from helper import load_cifar_c
 
 verbose = False
 
 # Prepare the training dataset.
 batch_size = 64
-(x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
+(x_train, y_train), (x_test, y_test) = #TODO
 input_shape = x_train[0].shape
 
 # Reserve 10,000 samples for validation.
@@ -55,8 +57,8 @@ def main():
             overall_results.append([lr])
             for w in weights:
                 model = EfficientNetB2(weights=None, classes=10, input_shape=input_shape, classifier_activation=None)
-                model_save_path = f'{prefix}saved_weights/cifar_calibrate/2_cal(lr={lr})(w={w})'
-                graph_path = f'{prefix}training_plots/cifar_calibrate/2_cal(lr={lr})(w={w}).png'
+                model_save_path = f'{prefix}saved_weights/imagenet_calibrate/2_cal(lr={lr})(w={w})'
+                graph_path = f'{prefix}training_plots/imagenet_calibrate/2_cal(lr={lr})(w={w}).png'
                 acc, ece = train_attempt(model, train_dataset, train_dataset_shift, val_dataset, 
                                         lr=lr, w=w, epochs=epochs, 
                                         graph_path=graph_path,

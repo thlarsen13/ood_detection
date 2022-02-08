@@ -30,7 +30,7 @@ def train_attempt(model, train_dataset, val_dataset, lr=1e-3, w=1, epochs=20, gr
             print(f'Training cce, ese, loss (for one batch): {cce:.4f}, {ese:.4f}, {cce+ese:.4f}')
 
         ECE_dict[epoch].append(ese.numpy())
-        return tf.add(cce, tf.multiply(w, ese))
+        return tf.add(cce, ese)
 
     # Prepare the metrics.
     train_acc_metric = keras.metrics.SparseCategoricalAccuracy()

@@ -8,29 +8,18 @@ import time
 from datetime import datetime
 from tensorflow.keras.applications import *
 from tqdm import tqdm
+from tensorflow.python.ops.numpy_ops import np_config
 
+np_config.enable_numpy_behavior()
 
 def train_attempt(model, train_dataset, shift_train_dataset, val_dataset, lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None, verbose=False): 
 
     optimizer = keras.optimizers.Adam(learning_rate=lr)
     # Instantiate a loss function.
     cce_loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-    ese_loss_fn = ExpectedCalibrationError(weight=w)
+    ece_loss_fn = ExpectedCalibrationError(weight=w)
 
-    ECE_dict = { i : [] for i in range(epochs)}
-    ACC = []
-
-    def loss_fn(y_batch_train, logits, verbose=False): 
-        # print(y_batch_train.shape)
-        # print(logits.shape)
-        # exit()
-        cce = cce_loss_fn(y_batch_train, logits) 
-        ese = ese_loss_fn(y_batch_train, logits)
-        if verbose:
-            print(f'Training cce, ese, loss (for one batch): {cce:.4f}, {ese:.4f}, {cce+ese:.4f}')
-
-        ECE_dict[epoch].append(ese.numpy())
-        return tf.add(cce, ese)
+    ACC, ECE = [], []
 
     # Prepare the metrics.
     train_acc_metric = keras.metrics.SparseCategoricalAccuracy()
@@ -52,44 +41,47 @@ def train_attempt(model, train_dataset, shift_train_dataset, val_dataset, lr=1e-
             # exit()
             with tf.GradientTape() as tape:
                 logits = model(x_batch_train, training=True)
-                loss_value = tf.multiply(w, ese)
+                loss_value = cce_loss_fn(y_batch_train, logits)
             grads = tape.gradient(loss_value, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
             # Update training metric.
             train_acc_metric.update_state(y_batch_train, logits)
+        
+        # Display metrics at the middle of each epoch.
+        train_acc = train_acc_metric.result()
+        if verbose: 
+            print("Training acc over (cce) epoch: %.4f" % (float(train_acc),))
+        # Reset training metrics at the end of each epoch
+        train_acc_metric.reset_states()
 
-            # Log every 200 batches.
-            if verbose and step % 200 == 0:
-                print(
-                    "Training loss (for one batch) at step %d: %.4f"
-                    % (step, float(loss_value))
-                )
-                print("Seen so far: %d samples" % ((step + 1) * batch_size))
+        # Run a validation loop at the end of each epoch.
+        for x_batch_val, y_batch_val in val_dataset:
+            val_logits = model(x_batch_val, training=False)
+            # Update val metrics
+            val_acc_metric.update_state(y_batch_val, val_logits) 
+            #TODO: write custom update state for ece 
+
+        val_acc = val_acc_metric.result()
+        val_acc_metric.reset_states()
+
         #iterate over batches of the shifted dataset, normalize the calibration
         for step, (x_batch_train, y_batch_train) in enumerate(shift_train_dataset):
 
             with tf.GradientTape() as tape:
                 logits = model(x_batch_train, training=True)
                 loss_value = ece_loss_fn(y_batch_train, logits)
+                ECE.append(loss_value)
             grads = tape.gradient(loss_value, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
             # Update training metric.
             train_acc_metric.update_state(y_batch_train, logits)
 
-            # Log every 200 batches.
-            if verbose and step % 200 == 0:
-                print(
-                    "Training loss (for one batch) at step %d: %.4f"
-                    % (step, float(loss_value))
-                )
-                print("Seen so far: %d samples" % ((step + 1) * batch_size))
-
         # Display metrics at the end of each epoch.
         train_acc = train_acc_metric.result()
         if verbose: 
-            print("Training acc over epoch: %.4f" % (float(train_acc),))
+            print("Training acc over (ece) epoch: %.4f" % (float(train_acc),))
         ACC.append(train_acc.numpy())
         # Reset training metrics at the end of each epoch
         train_acc_metric.reset_states()
@@ -103,12 +95,9 @@ def train_attempt(model, train_dataset, shift_train_dataset, val_dataset, lr=1e-
 
         val_acc = val_acc_metric.result()
         val_acc_metric.reset_states()
-        if verbose: 
-            print("Validation acc: %.4f" % (float(val_acc),))
-            print("Time taken: %.2fs" % (time.time() - start_time))
+
     #TODO Add EVAL
     if graph_path is not None: 
-        ECE = [np.mean(ECE_dict[i]) for i in range(epochs)]
         print(f"\n\n\n@@@ {graph_path}\n ECE ({len(ECE)}): {ECE} \nACC ({len(ACC)}): {ACC}")
     if model_save_path is not None: 
         # model.compile(optimizer="Adam", loss=tf.keras.losses.CategoricalCrossentropy)
