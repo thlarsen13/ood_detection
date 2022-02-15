@@ -3,14 +3,14 @@ from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np
 from tensorflow.keras.losses import Loss
-from cal_error import ExpectedCalibrationError
+from train_stats import ExpectedCalibrationError
 import time 
 from datetime import datetime
 from tensorflow.keras.applications import *
 from tqdm import tqdm
 
 
-def train_attempt(model, train_dataset, val_dataset, lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None, verbose=False): 
+def train_attempt(model_path, train_dataset, val_dataset, lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None, verbose=False): 
 
     optimizer = keras.optimizers.Adam(learning_rate=lr)
     # Instantiate a loss function.

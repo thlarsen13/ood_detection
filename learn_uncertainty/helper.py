@@ -25,9 +25,12 @@ def load_cifar_c_sev(method_name):
         data_by_sev[sev[i]] = [data[i:i+step], labels[i:i+step]]
     return data_by_sev
 
-def load_cifar_model(lr = 10**-3, w = 1): 
+def load_cifar_model(lr = 10**-3, w = 1, train_on_shift=False): 
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
     model_save_path = f'{prefix}saved_weights/cifar_calibrate/cal(lr={lr})(w={w})'
+    if train_on_shift: 
+        model_save_path = f'{prefix}saved_weights/cifar_calibrate/2_cal(lr={lr})(w={w})'
+
     model = keras.models.load_model(model_save_path)
     return model 
 

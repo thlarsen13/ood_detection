@@ -5,7 +5,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np
 from tensorflow.keras.losses import Loss
-from cal_error import ExpectedCalibrationError
+from calibration_stats import ExpectedCalibrationError
 import time 
 
 verbose = False
