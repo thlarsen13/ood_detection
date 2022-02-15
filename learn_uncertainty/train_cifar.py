@@ -32,8 +32,11 @@ val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
 val_dataset = val_dataset.batch(batch_size)
 
 data, labels, sev = load_cifar_c('contrast')
+
+
 train_dataset_shift = tf.data.Dataset.from_tensor_slices((data, labels))
 train_dataset_shift = train_dataset_shift.batch(batch_size)
+
 
 def main(): 
 

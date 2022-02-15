@@ -10,6 +10,9 @@ def load_mnist_c(method_name):
 def load_cifar_c(method_name): 
     return load_dataset_c(method_name, 'cifar_c')
 
+
+# ex: /home/thlarsen/ood_detection/distribution_shifts/cifar_c/labels.npy
+
 def load_dataset_c(method_name, dataset):
     folder_path = f'/home/thlarsen/ood_detection/distribution_shifts/{dataset}/'
     data = np.load(folder_path + method_name + '.npy')
@@ -61,5 +64,33 @@ def rgb_img_to_vec(x):
     x = np.reshape(x, (-1, 32*32))
     return x.astype('float64')
 
-	
+distribution_shifts = [
+"gaussian_noise",
+"shot_noise",
+"impulse_noise",
+"defocus_blur",
+"glass_blur",
+"motion_blur",
+"zoom_blur",
+"snow",
+"fog",
+"brightness",
+"contrast",
+"elastic_transform",
+"pixelate",
+"jpeg_compression",
+"speckle_noise",
+"gaussian_blur",
+"spatter",
+"saturate"]
 
+full_distribution_shifts = ["gaussian_noise",
+"shot_noise",
+"impulse_noise",
+"motion_blur",
+"brightness",
+"contrast",
+"pixelate",
+"jpeg_compression",
+"speckle_noise",
+"gaussian_blur",]

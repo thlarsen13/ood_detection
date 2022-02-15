@@ -128,35 +128,35 @@ def clipped_zoom(img, zoom_factor):
 # /////////////// Distortions ///////////////
 
 def gaussian_noise(x, severity=1):
-    c = [0.04, 0.06, .08, .09, .10][severity - 1]
+    c = [0.04, 0.06, .08, .09, .10, .11, .12, .13, .14, .15][severity - 1]
 
     x = np.array(x) / 255.
     return np.clip(x + np.random.normal(size=x.shape, scale=c), 0, 1) * 255
 
 
 def shot_noise(x, severity=1):
-    c = [500, 250, 100, 75, 50][severity - 1]
+    c = [500, 250, 100, 75, 50, 25, 13, 7, 4, 2][severity - 1]
 
     x = np.array(x) / 255.
     return np.clip(np.random.poisson(x * c) / c, 0, 1) * 255
 
 
 def impulse_noise(x, severity=1):
-    c = [.01, .02, .03, .05, .07][severity - 1]
+    c = [.01, .02, .03, .05, .07, .09, .11, .13, .15, .17][severity - 1]
 
     x = sk.util.random_noise(np.array(x) / 255., mode='s&p', amount=c)
     return np.clip(x, 0, 1) * 255
 
 
 def speckle_noise(x, severity=1):
-    c = [.06, .1, .12, .16, .2][severity - 1]
+    c = [.06, .1, .12, .16, .2, .24, .28, .32, .36, .4][severity - 1]
 
     x = np.array(x) / 255.
     return np.clip(x + x * np.random.normal(size=x.shape, scale=c), 0, 1) * 255
 
 
 def gaussian_blur(x, severity=1):
-    c = [.4, .6, 0.7, .8, 1][severity - 1]
+    c = [.4, .6, 0.7, .8, 1, 1.2, 1.4, 1.6, 1.8, 2][severity - 1]
 
     x = gaussian(np.array(x) / 255., sigma=c, multichannel=True)
     return np.clip(x, 0, 1) * 255
@@ -196,7 +196,7 @@ def defocus_blur(x, severity=1):
 
 
 def motion_blur(x, severity=1):
-    c = [(6,1), (6,1.5), (6,2), (8,2), (9,2.5)][severity - 1]
+    c = [(6,1), (6,1.5), (6,2), (8,2), (9,2.5), (9, 3), (10, 3), (10, 3.5), (11, 3.5), (11, 4)][severity - 1]
 
     output = BytesIO()
     x.save(output, format='PNG')
@@ -332,7 +332,7 @@ def spatter(x, severity=1):
 
 
 def contrast(x, severity=1):
-    c = [.75, .5, .4, .3, 0.15][severity - 1]
+    c = [.75, .5, .4, .3, 0.15, .1, .07, .04, .02, .01][severity - 1]
 
     x = np.array(x) / 255.
     means = np.mean(x, axis=(0, 1), keepdims=True)
@@ -340,7 +340,7 @@ def contrast(x, severity=1):
 
 
 def brightness(x, severity=1):
-    c = [.05, .1, .15, .2, .3][severity - 1]
+    c = [.05, .1, .15, .2, .3, .4, .5, .6, .7, .8][severity - 1]
 
     x = np.array(x) / 255.
     x = sk.color.rgb2hsv(x)
@@ -362,7 +362,7 @@ def saturate(x, severity=1):
 
 
 def jpeg_compression(x, severity=1):
-    c = [80, 65, 58, 50, 40][severity - 1]
+    c = [80, 65, 58, 50, 40, 35, 30, 25, 20, 15][severity - 1]
 
     output = BytesIO()
     x.save(output, 'JPEG', quality=c)
@@ -372,7 +372,7 @@ def jpeg_compression(x, severity=1):
 
 
 def pixelate(x, severity=1):
-    c = [0.95, 0.9, 0.85, 0.75, 0.65][severity - 1]
+    c = [0.95, 0.9, 0.85, 0.75, 0.65, .55, .45, .35, .25, .15][severity - 1]
 
     x = x.resize((int(32 * c), int(32 * c)), PILImage.BOX)
     x = x.resize((32, 32), PILImage.BOX)
@@ -447,27 +447,41 @@ test_data = dset.CIFAR10("/home/thlarsen/ood_detection/cifar", train=False, down
 convert_img = trn.Compose([trn.ToTensor(), trn.ToPILImage()])
 folder_path = '/home/thlarsen/ood_detection/distribution_shifts/cifar_c/'
 
+success = []
+
 i = 0
 for method_name in d.keys():
+    if method_name != 'Contrast': 
+        continue
     print('Creating images for the corruption', method_name)
     cifar_c, labels, sev = [], [], []
     i += 1
     # if i < 8: 
     #     continue 
-    for severity in range(0,6):
-        corruption = lambda clean_img: d[method_name](clean_img, severity)
+    for severity in range(0,11):
 
-        for img, label in zip(test_data.data, test_data.targets):
+        try:
+            corruption = lambda clean_img: d[method_name](clean_img, severity)
 
-            labels.append(label)
-            # print(type(img))
-            # exit()
-            if severity == 0: 
-                cifar_c.append(np.uint8(img))
-            else: 
-                cifar_c.append(np.uint8(corruption(trn.ToPILImage()(img))))
-            sev.append(severity)
+            for img, label in zip(test_data.data, test_data.targets):
 
+                labels.append(label)
+                # print(type(img))
+                # exit()
+                if severity == 0: 
+                    cifar_c.append(np.uint8(img))
+                else: 
+                    cifar_c.append(np.uint8(corruption(trn.ToPILImage()(img))))
+                sev.append(severity)
+            print(f"sev={severity}...success")
+            if severity == 10: 
+                success.append(method_name)
+        except: 
+                print(f"sev={severity}...error")
+        print(np.array(cifar_c).shape)
+        print(np.array(labels).shape)
+        print(np.array(sev).shape)
+    # exit()
     np.save(folder_path + d[method_name].__name__ + '_sev.npy',np.array(sev))
     np.save(folder_path + d[method_name].__name__ + '.npy',
             np.array(cifar_c).astype(np.uint8))
@@ -475,4 +489,11 @@ for method_name in d.keys():
     np.save(folder_path + 'labels.npy',
             np.array(labels).astype(np.uint8))
 
+    print(folder_path + 'labels.npy')
+
+    test_labels = np.load(folder_path + 'labels.npy')
+    print(test_labels.shape)
+    exit() 
+
+print(success)
 

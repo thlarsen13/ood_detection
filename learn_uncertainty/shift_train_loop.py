@@ -10,6 +10,8 @@ from tensorflow.keras.applications import *
 from tqdm import tqdm
 from tensorflow.python.ops.numpy_ops import np_config
 import os
+import tensorflow.keras.backend as K
+import pickle 
 
 np_config.enable_numpy_behavior()
 
@@ -22,14 +24,36 @@ def train_attempt(model_save_path, train_dataset, shift_train_dataset, val_datas
     # Instantiate a loss function.
     cce_loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     ece_loss_fn = ExpectedCalibrationError(weight=w)
-    model.compile(optimizer=optimizer, loss = cce_loss_fn)
 
     if os.path.exists(model_save_path):
-        model.load_weights(model_save_path)
-        model._make_train_function()
-        with open('optimizer.pkl', 'rb') as f:
-            weight_values = pickle.load(f)
-        model.optimizer.set_weights(weight_values)
+        try: 
+                    # Get saved weights
+            opt_weights = np.load(model_save_path + 'opt_weights.npy', allow_pickle=True)
+
+            grad_vars = model.trainable_weights
+            # This need not be model.trainable_weights; it must be a correctly-ordered list of 
+            # grad_vars corresponding to how you usually call the optimizer.
+
+            zero_grads = [tf.zeros_like(w) for w in grad_vars]
+
+            # Apply gradients which don't do nothing with Adam
+            optimizer.apply_gradients(zip(zero_grads, grad_vars))
+
+            # Set the weights of the optimizer
+            optimizer.set_weights(opt_weights)
+
+            # NOW set the trainable weights of the model
+            # model_weights = np.load('/path/to/saved/model/weights.npy', allow_pickle=True)
+            # model.set_weights(model_weights)
+            model.load_weights(model_save_path)
+
+            # model._make_train_function()
+            # with open('optimizer.pkl', 'rb') as f:
+            #     weight_values = pickle.load(f)
+            # model.optimizer.set_weights(weight_values)
+            print("Succefully loaded model with optimizer info")
+        except: 
+            print("Error finding pretrained model and optimizer, training from scratch instead")
 
 
 
@@ -118,11 +142,11 @@ def train_attempt(model_save_path, train_dataset, shift_train_dataset, val_datas
     if model_save_path is not None: 
         model.save_weights(model_save_path)
 
-        # model.compile(optimizer="Adam", loss=tf.keras.losses.CategoricalCrossentropy)
-        symbolic_weights = getattr(model.optimizer, 'weights')
-        weight_values = K.batch_get_value(symbolic_weights)
-        with open('optimizer.pkl', 'wb') as f:
-            pickle.dump(weight_values, f)
+        np.save(model_save_path + 'opt_weights.npy', optimizer.get_weights())        
+# symbolic_weights = getattr(model.optimizer, 'weights')
+        # weight_values = K.batch_get_value(symbolic_weights)
+        # with open('optimizer.pkl', 'wb') as f:
+        #     pickle.dump(weight_values, f)
     return round(ACC[-1], 4), round(ECE[-1], 4)
 
 
