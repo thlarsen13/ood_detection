@@ -5,6 +5,7 @@ venv/
 research_log/
 learn_uncertainty/training_plots/
 *.txt
+*.pkl
 learn_uncertainty/datasets/
 */.ipynb_checkpoints/
 learn_uncertainty/training_runs/
@@ -16,3 +17,5 @@ distribution_shifts/shift_env/
 learn_uncertainty/saved_weights/
 *dev*
 cifar/
+distribution_shifts/cifar_c_only1-5/
+
