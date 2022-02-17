@@ -43,14 +43,14 @@ def main():
     # weights = [10 **i for i in range(-3, 1)]
     # learning_rates = [10**i for i in range(-5, -2)]
 
-    weights = [.65]
-    # learning_rates = [10**-3, 10**-2]
-    # weights = [.1]
+    weights = [.5]
     learning_rates = [10**-3]
+    # weights = [.1]
+    # learning_rates = [10**-3]
 
     overall_results = [['l/w']+ weights]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 2
+    epochs = 60
 
     with tqdm(total=len(learning_rates) * len(weights)) as pbar:
         for lr in learning_rates: 

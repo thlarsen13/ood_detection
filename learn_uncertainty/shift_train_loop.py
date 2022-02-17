@@ -68,7 +68,7 @@ def train_attempt(model_save_path, train_dataset, shift_train_dataset, val_datas
     Here's our training & evaluation loop:
     """
 
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs)):
         if verbose: 
             print("\nStart of epoch %d" % (epoch,))
         start_time = time.time()
