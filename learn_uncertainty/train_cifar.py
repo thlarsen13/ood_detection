@@ -7,8 +7,8 @@ import time
 from datetime import datetime
 from tensorflow.keras.applications import *
 from tqdm import tqdm
-from shift_train_loop import train_attempt
-from helper import load_cifar_c
+from train_loop import train_attempt
+from helper import load_dataset_c
 
 verbose = False
 
@@ -31,7 +31,7 @@ train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
 val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
 val_dataset = val_dataset.batch(batch_size)
 
-data, labels, sev = load_cifar_c('contrast')
+data, labels, sev = load_dataset_c('contrast', 'cifar_c')
 
 
 train_dataset_shift = tf.data.Dataset.from_tensor_slices((data, labels))
@@ -39,19 +39,20 @@ train_dataset_shift = train_dataset_shift.batch(batch_size)
 
 
 def main(): 
+    shift = False 
 
     # weights = [10 **i for i in range(-3, 1)]
     # learning_rates = [10**i for i in range(-5, -2)]
 
-    weights = [.5]
-    learning_rates = [10**-3]
+    weights = [0, .1, .5]
+    learning_rates = [10**-4]
     # weights = [.1]
     # learning_rates = [10**-3]
 
     overall_results = [['l/w']+ weights]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 60
-
+    epochs = 200
+    acc, ece = None, None 
     with tqdm(total=len(learning_rates) * len(weights)) as pbar:
         for lr in learning_rates: 
             overall_results.append([lr])
@@ -60,11 +61,19 @@ def main():
                 model_save_path = f'{prefix}saved_weights/cifar_calibrate/2_cal(lr={lr})(w={w}).h5'
                 graph_path = f'{prefix}training_plots/cifar_calibrate/2_cal(lr={lr})(w={w}).png'
 
-                acc, ece = train_attempt(model_save_path, train_dataset, train_dataset_shift, val_dataset, 
+                if shift: 
+                    acc, ece = train_attempt_shift(model_save_path, train_dataset, train_dataset_shift, val_dataset, 
                                         input_shape=input_shape,
                                         lr=lr, w=w, epochs=epochs, 
                                         graph_path=graph_path,
                                         verbose=True)
+                else: 
+                    acc, ece = train_attempt(input_shape, train_dataset, val_dataset, 
+                                        lr=lr, w=w, epochs=epochs, 
+                                        graph_path=graph_path,
+                                        verbose=True, 
+                                        model_save_path=model_save_path)
+
                 overall_results[-1].append((acc, ece))
                 pbar.update(1)
 

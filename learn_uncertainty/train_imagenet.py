@@ -11,7 +11,7 @@ from datetime import datetime
 from tensorflow.keras.applications import *
 from tqdm import tqdm
 # from train_ece_shifted import train_attempt
-from train_ece_loop import train_attempt
+from train_loop import train_attempt
 
 from helper import load_cifar_c
 
@@ -31,9 +31,9 @@ train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
 val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
 val_dataset = val_dataset.batch(batch_size)
 
-data, labels, sev = load_cifar_c('contrast')
-train_dataset_shift = tf.data.Dataset.from_tensor_slices((data, labels))
-train_dataset_shift = train_dataset_shift.batch(batch_size)
+# data, labels, sev = load_cifar_c('contrast')
+# train_dataset_shift = tf.data.Dataset.from_tensor_slices((data, labels))
+# train_dataset_shift = train_dataset_shift.batch(batch_size)
 
 def main(): 
 
@@ -43,7 +43,7 @@ def main():
     weights = [0, 10**-2, .1]
     # learning_rates = [10**-3, 10**-2]
     # weights = [.1]
-    learning_rates = [10**-3]
+    learning_rates = [10**-4]
 
     overall_results = [['l/w']+ weights]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
@@ -54,8 +54,8 @@ def main():
             overall_results.append([lr])
             for w in weights:
                 model = EfficientNetB2(weights=None, classes=10, input_shape=input_shape, classifier_activation=None)
-                model_save_path = f'{prefix}saved_weights/imagenet_calibrate/2_cal(lr={lr})(w={w})'
-                graph_path = f'{prefix}training_plots/imagenet_calibrate/2_cal(lr={lr})(w={w}).png'
+                model_save_path = f'{prefix}saved_weights/imagenet/cal(lr={lr})(w={w})'
+                graph_path = f'{prefix}training_plots/imagenet/cal(lr={lr})(w={w}).png'
                 acc, ece = train_attempt(model, train_dataset, train_dataset_shift, val_dataset, 
                                         lr=lr, w=w, epochs=epochs, 
                                         graph_path=graph_path,

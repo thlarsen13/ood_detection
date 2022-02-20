@@ -7,6 +7,7 @@ import numpy as np
 from tensorflow.keras.losses import Loss
 from calibration_stats import ExpectedCalibrationError
 import time 
+from train_loop import train_attempt
 
 verbose = False
 
@@ -41,14 +42,16 @@ val_dataset = val_dataset.batch(batch_size)
 
 def main(): 
 
-    weights = [10 **i for i in range(-3, 3)]
-    learning_rates = [10**i for i in range(-5, -1)]
-    overall_results = [['lrs']+weights]
+    # weights = [10 **i for i in range(-3, 3)]
+    # learning_rates = [10**i for i in range(-5, -1)]
+    weights = [.1, 0]               
+    learning_rates = [10**-4]
+    overall_results = [['l/w']+weights]
 
     # weights = [1]
     # learning_rates = [10**-3]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 20
+    epochs = 60
     for lr in learning_rates: 
         overall_results.append([f'lr = {lr}'])
         for w in weights:
@@ -64,11 +67,16 @@ def main():
             acc, ece = train_attempt(model, train_dataset, val_dataset, 
                                     lr=lr, w=w, epochs=epochs, 
                                     graph_path=graph_path, 
-                                    model_save_path=model_save_path)
+                                    model_save_path=model_save_path, 
+                                    verbose=True)
             overall_results[-1].append((acc, ece))
 
-    print('\n'.join([''.join(['{:4}'.format(item) for item in row]) 
-      for row in overall_results]))
+    s = [[str(e) for e in row] for row in overall_results]
+    lens = [max(map(len, col)) for col in zip(*s)]
+    fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
+    table = [fmt.format(*row) for row in s]
+    print('\n'.join(table))
+
 if __name__ == "__main__": 
     main()
 
