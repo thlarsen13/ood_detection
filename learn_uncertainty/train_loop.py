@@ -13,8 +13,7 @@ import os
 
 def train_attempt(input_shape, train_dataset, val_dataset, lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None, verbose=False): 
 
-    model = EfficientNetB2(weights=None, classes=10, input_shape=input_shape, classifier_activation=None)
-
+    model = EfficientNetB0(weights=None, classes=10, input_shape=input_shape, classifier_activation=None)
 
     optimizer = keras.optimizers.Adam(learning_rate=lr)
     # Instantiate a loss function.
@@ -62,6 +61,7 @@ def train_attempt(input_shape, train_dataset, val_dataset, lr=1e-3, w=1, epochs=
         cce = cce_loss_fn(y_batch_train, logits) 
         ese = ese_loss_fn(y_batch_train, logits)
         if verbose:
+            # print(f'w={w}')
             print(f'Training cce, ese, loss (for one batch): {cce:.4f}, {ese:.4f}, {cce+ese:.4f}')
 
         ECE_dict[epoch].append(ese.numpy())
@@ -87,7 +87,7 @@ def train_attempt(input_shape, train_dataset, val_dataset, lr=1e-3, w=1, epochs=
             # exit()
             with tf.GradientTape() as tape:
                 logits = model(x_batch_train, training=True)
-                loss_value = loss_fn(y_batch_train, logits)
+                loss_value = loss_fn(y_batch_train, logits, verbose=False)
             grads = tape.gradient(loss_value, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
