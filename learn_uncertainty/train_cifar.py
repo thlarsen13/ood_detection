@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 from tensorflow.keras.applications import *
 from tqdm import tqdm
-from train_loop import train_attempt
+from train_loop import trainBuilder
 # from shift_train_loop import train_attempt_shift
 
 from helper import load_dataset_c

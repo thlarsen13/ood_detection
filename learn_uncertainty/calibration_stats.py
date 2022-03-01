@@ -7,6 +7,7 @@ from tensorflow_probability.python.stats import quantiles as quantiles_lib
 import numpy as np 
 from tensorflow_probability.python import math as tfp_math
 from tensorflow_probability.python.internal import dtype_util
+
 class ExpectedCalibrationError(Loss):
     def __init__(self, weight=1, num_bins=10):
         super().__init__()
