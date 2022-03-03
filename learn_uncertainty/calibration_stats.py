@@ -9,9 +9,9 @@ from tensorflow_probability.python import math as tfp_math
 from tensorflow_probability.python.internal import dtype_util
 
 class ExpectedCalibrationError(Loss):
-    def __init__(self, weight=1, num_bins=10):
+    def __init__(self, num_bins=10):
         super().__init__()
-        self.weight = weight
+        # self.weight = weight
         self.num_bins = num_bins
     
     def _compute_calibration_bin_statistics(self, 
@@ -90,6 +90,6 @@ class ExpectedCalibrationError(Loss):
 
         # Compute the ESE statistic which is supposed to be analagous to brier score
         ese = tf.reduce_sum(pbins * tf.square(pcorrect - pmean_observed))
-        return tf.multiply(self.weight, ese)
+        return ese
         
 

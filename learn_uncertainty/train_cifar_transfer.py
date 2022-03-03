@@ -91,7 +91,7 @@ def main():
 
     overall_results = [['l/w']+ weights]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 15
+    epochs = 1
     acc, ece = None, None 
     with tqdm(total=len(learning_rates) * len(weights)) as pbar:
         for lr in learning_rates: 
@@ -107,7 +107,7 @@ def main():
                                     graph_path=graph_path,
                                     model_save_path=model_save_path,
                                     transform = resize_imgs, 
-                                    verbose=False)
+                                    verbose=3)
                 acc, ece = builder.train_attempt(train_dataset, val_dataset) 
 
 

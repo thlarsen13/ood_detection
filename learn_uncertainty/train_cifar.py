@@ -61,24 +61,13 @@ def main():
             for w in weights:
                 model = None
                
-                if shift: 
-                    model_save_path = f'{prefix}saved_weights/cifar_calibrate/2_cal(lr={lr})(w={w}).h5'
-                    graph_path = f'{prefix}training_plots/cifar_calibrate/2_cal(lr={lr})(w={w}).png'
-
-                    acc, ece = train_attempt_shift(model_save_path, train_dataset, train_dataset_shift, val_dataset, 
-                                        input_shape=input_shape,
-                                        lr=lr, w=w, epochs=epochs, 
-                                        graph_path=graph_path,
-                                        verbose=True)
-                else: 
-                    model_save_path = f'{prefix}saved_weights/cifar_calibrate/cal(lr={lr})(w={w}).h5'
-                    graph_path = f'{prefix}training_plots/cifar_calibrate/cal(lr={lr})(w={w}).png'
-
-                    acc, ece = train_attempt(input_shape, train_dataset, val_dataset, 
-                                        lr=lr, w=w, epochs=epochs, 
-                                        graph_path=graph_path,
-                                        verbose=True, 
-                                        model_save_path=model_save_path)
+                builder = TrainBuilder(input_shape=input_shape,
+                                    lr=lr, w=w, epochs=epochs, 
+                                    graph_path=graph_path,
+                                    model_save_path=model_save_path,
+                                    transform = resize_imgs, 
+                                    verbose=False)
+                acc, ece = builder.train_attempt(train_dataset, val_dataset, model) 
 
                 overall_results[-1].append((acc, ece))
                 pbar.update(1)
