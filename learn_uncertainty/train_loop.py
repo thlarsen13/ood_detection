@@ -6,14 +6,18 @@ from tensorflow.keras.losses import Loss
 from calibration_stats import ExpectedCalibrationError
 import time 
 from datetime import datetime
+
 from tensorflow.keras.applications import *
+
 from tqdm import tqdm
 from keras.models import Sequential
 from keras.layers import Conv2D, MaxPool2D, Dropout, Flatten, Dense, GlobalAveragePooling2D 
 from tensorflow.keras.layers import BatchNormalization
 import cv2
+from models import get_model
 
 import os 
+
 
 
 class TrainBuilder(): 
@@ -92,38 +96,6 @@ class TrainBuilder():
         # with open('optimizer.pkl', 'rb') as f:
         #     weight_values = pickle.load(f)
         # model.optimizer.set_weights(weight_values)
-    def get_model(self): 
-
-        model = None 
-
-        if self.model_arch == 'EfficientNetB0Transfer': 
-            efnb0 = EfficientNetB0(weights='imagenet', include_top=False, input_shape=self.input_shape, classes=self.n_classes)
-
-            model = Sequential()
-            model.add(efnb0)
-            model.add(GlobalAveragePooling2D())
-            model.add(Dropout(0.5))
-            model.add(Dense(self.n_classes))
-
-            model.summary()
-        elif self.model_arch == 'EfficientNetB0': 
-
-            self.model = EfficientNetB0(weights=None, classes=10, input_shape=input_shape, classifier_activation=None)
-            # exit() 
-        else: 
-            print("no model arch or model specified, exiting")
-            exit() 
-
-        if os.path.exists(self.model_save_path):
-            try: 
-                self.load_saved_weights(model)
-                print("Succefully loaded model with optimizer info")
-
-            except Exception as e:
-                print(f"Error finding pretrained model and optimizer: {e}, training from scratch instead")
-        else:
-            print('starting to train new model')
-        return model 
 
 
     def display_results(self, model): 
@@ -132,13 +104,24 @@ class TrainBuilder():
             print(f"\n\n\n@@@ {self.graph_path}\n ECE ({len(self.ECE)}): {self.ECE} \nACC ({len(self.ACC)}): {self.ACC}")
         if self.model_save_path is not None: 
             # model.compile(optimizer="Adam", loss=tf.keras.losses.CategoricalCrossentropy)
+            print('here1')
             model.save(self.model_save_path)
             np.save(self.model_save_path + 'opt_weights.npy', self.optimizer.get_weights())   
+            print('here2')
 
     def train_attempt(self, train_dataset, val_dataset, model=None): 
         if model == None: 
-            model = self.get_model() 
+            model = get_model(self.model_arch, self.verbose) 
 
+            if os.path.exists(self.model_save_path):
+                try: 
+                    self.load_saved_weights(model)
+                    print("Succefully loaded model with optimizer info")
+
+                except Exception as e:
+                    print(f"Error finding pretrained model and optimizer: {e}, training from scratch instead")
+            else:
+                print('starting to train new model')
         """
         Here's our training & evaluation loop:
         """

@@ -32,7 +32,7 @@ from tqdm import tqdm
 from tensorflow.keras.applications import *
 from calibration_stats import ExpectedCalibrationError
 from train_loop import TrainBuilder
-
+from helper import resize_imgs
 
 # In[3]:
 
@@ -69,9 +69,12 @@ val_dataset = val_dataset.batch(batch_size)
 
     
 def resize_img(img):
-    return cv2.resize(img.numpy(), (height, width), interpolation=cv2.INTER_CUBIC)
+    return cv2.resize(img, (height, width), interpolation=cv2.INTER_CUBIC)
 
-def resize_imgs(imgs): 
+def resize_imgs(imgs, from_tensor=True): 
+    if from_tensor:
+        imgs=imgs.numpy()
+
     new_imgs = np.empty((imgs.shape[0], height, width, channels))
     for i in range(imgs.shape[0]): 
         new_imgs[i] = resize_img(imgs[i])
@@ -84,14 +87,14 @@ def main():
     # weights = [10 **i for i in range(-3, 1)]
     # learning_rates = [10**i for i in range(-5, -2)]
 
-    weights = [0, .1, .01]
+    weights = [0, .1]
     learning_rates = [10**-4]
     # weights = [.1]
     # learning_rates = [10**-3]
 
     overall_results = [['l/w']+ weights]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 1
+    epochs = 15
     acc, ece = None, None 
     with tqdm(total=len(learning_rates) * len(weights)) as pbar:
         for lr in learning_rates: 
@@ -107,11 +110,12 @@ def main():
                                     graph_path=graph_path,
                                     model_save_path=model_save_path,
                                     transform = resize_imgs, 
-                                    verbose=3)
+                                    verbose=1)
                 acc, ece = builder.train_attempt(train_dataset, val_dataset) 
 
-
+                print('here3')
                 overall_results[-1].append((acc, ece))
+                print('here4')
                 pbar.update(1)
 
     #array nonsense to make it print the array in a readable format

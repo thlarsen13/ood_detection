@@ -20,15 +20,18 @@ from mxnet.gluon.data.vision import transforms
 from gluoncv import utils
 from gluoncv.model_zoo import get_model
 
+# from model import get_model
+
 import sys
 sys.path.insert(1, '/home/thlarsen/ood_detection')
 
 from helper import load_dataset_sev, load_dataset_c, load_mnist_model, load_cifar_model, rgb_img_to_vec
 
+from train_cifar_transfer import resize_imgs
+
 from helper import distribution_shifts
 prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-acc_fn = keras.metrics.Accuracy()
-ECE = ExpectedCalibrationError()
+
 
 def graph_single_model(lr, w): 
     model = load_mnist_model(lr=lr, w=w) 
@@ -84,24 +87,25 @@ def graph_single_model(lr, w):
 # m2 = get_model('cifar_resnet110_v1', classes=10, pretrained=True)
 
 
-dataset = 'mnist'
+dataset = 'cifar'
+transfer_imagenet = True
 
-label = [ [0.0001, 0], [.0001, .1] ]
+label = [ [0.0001, 0], [0.0001, .1] ]
 
-m1 = load_mnist_model(lr=label[0][0], w=label[0][1]) 
-m2 = load_mnist_model(lr=label[1][0], w=label[1][1]) 
+# m1 = load_mnist_model(lr=label[0][0], w=label[0][1]) 
+# m2 = load_mnist_model(lr=label[1][0], w=label[1][1]) 
+# m1, trn1 = load_cifar_model(lr=label[0][0], w=label[0][1], train_alg='ece', model_arch='EfficientNetB0Transfer')
+# m2, trn2 = load_cifar_model(lr=label[1][0], w=label[1][1], train_alg='ece', model_arch='EfficientNetB0Transfer') 
 
-graph_label = ['ECE + Cross Entropy', 'Cross Entropy']
 
+m1, trn1 = load_cifar_model(lr=.0001, w=0, train_alg='ece', model_arch='EfficientNetB0Transfer') 
+m2, trn2 = load_cifar_model(lr=.0001, w=.1, train_alg='ece', model_arch='EfficientNetB0Transfer') 
 
-inc = [-.2, .2]
-width = inc[-1] - inc[0]
+transforms = {m1: trn1, m2:trn2}
 
 models = [m1, m2]
 
-acc, ece = {}, {}
-
-full_distribution_shifts = ["gaussian_noise",
+full_distribution_shifts = ['gaussian_noise',
 "shot_noise",
 "impulse_noise",
 "motion_blur",
@@ -112,35 +116,60 @@ full_distribution_shifts = ["gaussian_noise",
 "speckle_noise",
 "gaussian_blur"]
 
+num_batches = 100
+num_test = 10000 
+m = num_test // num_batches
+
+# acc_fn = keras.metrics.Accuracy()
+# ECE = ExpectedCalibrationError()
+acc = {}
+ece = {}
+
 for shift in full_distribution_shifts: 
     acc[shift] = {}
     ece[shift] = {}
+
+
     shift_name = distribution_shifts[shift]
     print(f"shift = {shift_name}")
     data_by_sev = load_dataset_sev(shift, dataset=dataset)
 
-    for model in reversed(models): 
+    for model in models: 
         acc[shift][model] = []
         ece[shift][model] = []
 
         for sev in data_by_sev.keys(): 
-            data_s, labels_s = data_by_sev[sev]
+            if sev > 1: 
+                continue
+            batch_acc, batch_ece = [], []
+            for batch in range(num_batches): #attempted fix for OOM errors
+                
+                data_s, labels_s = data_by_sev[sev]
 
-            if dataset == 'mnist': 
-                data_s = np.reshape(np.mean(data_s, axis=3), (-1, 1024))
-            # if False: #for baseline cifar model from internet
-            #     print(data_s.shape)
-            #     data_s = mx.ndarray.array(data_s)
-            #     print(data_s.shape)
-            #     preds = model(data_s)
-            # else: 
-            preds = model.predict(data_s)
-            acc[shift][model].append(acc_fn(labels_s, tf.argmax(preds, axis=1)))
-            ece[shift][model].append(ECE.call(labels_s, preds))
-    #         print(f" acc = {acc[-1]}")
-    #         print(f" ece = {ece[-1]}")
+                data_s = data_s[batch*m:(batch+1)*m]
+                labels_s = labels_s[batch*m:(batch+1)*m]
+                tran = transforms[model]
+
+                preds = model.predict(tran(data_s))
+
+                acc_fn = keras.metrics.Accuracy()
+                ECE = ExpectedCalibrationError()
+                batch_acc.append(acc_fn(labels_s, tf.argmax(preds, axis=1)))
+                batch_ece.append(ECE.call(labels_s, preds))
+
+            acc[shift][model].append(np.mean(np.array(batch_acc)))
+            ece[shift][model].append(np.mean(np.array(batch_ece)))
+            print(f"sev = {sev}")
+            print(f" acc = {acc[shift][model][-1]}")
+            print(f" ece = {ece[shift][model][-1]}")
+
+    
+    inc = [-.2, .2]
+    width = inc[-1] - inc[0]
+    graph_label = ['Cross Entropy', 'ECE + Cross Entropy']
 
     plt.figure()
+
 
     X = range(len(acc[shift][models[0]]))
       
@@ -155,7 +184,7 @@ for shift in full_distribution_shifts:
     plt.legend()
 
     plt.savefig(prefix + f"{dataset}_graphs/compare_{shift}_acc.png")
-    plt.show()
+    # plt.show()
 
 
     plt.figure()
@@ -170,7 +199,7 @@ for shift in full_distribution_shifts:
 
     plt.savefig(prefix + f"{dataset}_graphs/compare_{shift}_ece.png")
 
-    plt.show()
+    # plt.show()
     ### END LOOP 
 
 
@@ -178,7 +207,6 @@ for shift in full_distribution_shifts:
 avg_acc = {}
 avg_ece = {}
 
-delta = [.13, .06, .05, .033, .01, -.05, -.15, -.2, -.4, -.45, -.5]
 for model in models: 
 
     avg_acc[model] = []
@@ -190,7 +218,7 @@ for model in models:
         for shift in full_distribution_shifts: 
             total_acc += acc[shift][model][sev]
             total_ece += ece[shift][model][sev]
-        avg_acc[model].append((total_acc / 11) + delta[sev])
+        avg_acc[model].append((total_acc / 11))
         avg_ece[model].append(total_ece / 11)
 
 plt.figure()

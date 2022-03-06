@@ -2,6 +2,8 @@ import numpy as np
 from tensorflow import keras
 import tensorflow as tf 
 from tensorflow.keras.applications import *
+from models import get_model
+import cv2
 
 prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
 
@@ -27,6 +29,26 @@ distribution_shifts = {
 "saturate" : 'Saturate'}
 
 
+height = 224
+width = 224
+channels = 3
+
+def resize_img(img):
+    return cv2.resize(img, (height, width), interpolation=cv2.INTER_CUBIC)
+
+def numpy_resize_imgs(imgs): 
+    return resize_imgs(imgs, from_tensor=False)
+
+def resize_imgs(imgs, from_tensor=True): 
+    if from_tensor:
+        imgs=imgs.numpy()
+
+    new_imgs = np.empty((imgs.shape[0], height, width, channels))
+    for i in range(imgs.shape[0]): 
+        new_imgs[i] = resize_img(imgs[i])
+    return new_imgs
+
+
 def load_dataset_c(method_name, dataset):
     if dataset not in ['mnist_c', 'cifar_c']: 
         print(f"Error, {dataset} not in [mnist, cifar]")
@@ -37,6 +59,9 @@ def load_dataset_c(method_name, dataset):
     labels = np.load(folder_path + 'labels.npy')
     sev = np.load(folder_path + method_name + '_sev.npy')
     return data, labels, sev
+
+#ideally, make classes that handle this correctly
+
 
 def load_dataset_sev(method_name, dataset='cifar'):
     data, labels, sev = None, None, None
@@ -54,18 +79,39 @@ def load_dataset_sev(method_name, dataset='cifar'):
         data_by_sev[sev[i]] = [data[i:i+step], labels[i:i+step]]
     return data_by_sev
 
-def load_cifar_model(lr = 10**-3, w = 1, train_on_shift=False): 
-    model_save_path = f'{prefix}saved_weights/cifar_calibrate/cal(lr={lr})(w={w})'
-    if train_on_shift: 
-        model_save_path = f'{prefix}saved_weights/cifar_calibrate/2_cal(lr={lr})(w={w})'
-    model = None 
-    try: 
-        model = keras.models.load_model(model_save_path)
-    except: 
-        model = EfficientNetB2(weights=None, classes=10, input_shape=(32, 32, 3), classifier_activation=None)
-        model.load_weights(model_save_path + '.h5')
+def load_cifar_model(lr = 10**-3, w = 1, train_alg='ece', model_arch='EfficientNetB0Transfer'): 
+    cifar_prefix = f'{prefix}saved_weights/cifar_calibrate/'
+    model_save_path = None
+    trn = lambda x: x
 
-    return model 
+    model = get_model(model_arch=model_arch, verbose=1)
+
+    if train_alg == 'ece_shift': 
+        model_save_path = f'{cifar_prefix}2_cal(lr={lr})(w={w})'
+    elif train_alg == 'ece':
+        if model_arch == 'EfficientNetB0Transfer': 
+            trn = numpy_resize_imgs  
+            model_save_path = f'{cifar_prefix}trn_cal(lr={lr})(w={w})'
+        else:  
+            model_save_path = f'{cifar_prefix}cal(lr={lr})(w={w})'
+    else: 
+        print(f'error: {train_alg} has not been supported')
+
+    model.load_weights(model_save_path + '.h5')
+
+    #todo add support for models saved differently
+
+    return model, trn
+
+
+
+
+# def load_model_with_saved_weights(model): 
+
+#     model = get_model(self.model_arch, self.input_shape, self.n_classes, self.verbose)  
+
+#     model.load_weights(self.model_save_path)
+
 
 
 def load_mnist_model(lr = 10**-3, w = 1): 
