@@ -16,13 +16,14 @@ from tensorflow.keras.layers import BatchNormalization
 import cv2
 from models import get_model
 
+
 import os 
 
 
 
 class TrainBuilder(): 
 
-    def __init__(self, input_shape, lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None, verbose=1, transform=None): 
+    def __init__(self, input_shape, lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None, verbose=1, transform=None, model_arch='EfficientNetB0Transfer'): 
         self.input_shape = input_shape
         self.lr = lr 
         self.w = w
@@ -30,10 +31,11 @@ class TrainBuilder():
         self.graph_path = graph_path
         self.model_save_path = model_save_path
         self.verbose = verbose
-        self.transform = transform
         
         if transform == None: 
-            transform = lambda identity: identity
+            self.transform = lambda identity: identity
+        else: 
+            self.transform = transform
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr)
 
@@ -44,7 +46,7 @@ class TrainBuilder():
         self.ACC = []
         self.ECE = []
 
-        self.model_arch = 'EfficientNetB0Transfer'
+        self.model_arch = model_arch
 
         self.n_classes = 10
 
@@ -104,10 +106,8 @@ class TrainBuilder():
             print(f"\n\n\n@@@ {self.graph_path}\n ECE ({len(self.ECE)}): {self.ECE} \nACC ({len(self.ACC)}): {self.ACC}")
         if self.model_save_path is not None: 
             # model.compile(optimizer="Adam", loss=tf.keras.losses.CategoricalCrossentropy)
-            print('here1')
             model.save(self.model_save_path)
             np.save(self.model_save_path + 'opt_weights.npy', self.optimizer.get_weights())   
-            print('here2')
 
     def train_attempt(self, train_dataset, val_dataset, model=None): 
         if model == None: 
@@ -172,20 +172,28 @@ class TrainBuilder():
         return round(self.ACC[-1], 4), round(self.ECE[-1], 4)
 
 
-
-
-    def shift_train_attempt(self, train_dataset, val_dataset, model=None): 
-
-
+    def shift_train_attempt(self, train_dataset, shift_train_dataset, val_dataset, model=None): 
         if model == None: 
-            model = self.get_model() 
+            model = get_model(self.model_arch, self.verbose) 
 
-        for epoch in tqdm(range(epochs)):
-            self.eoch = epoch 
-            if verbose: 
+            if os.path.exists(self.model_save_path):
+                try: 
+                    self.load_saved_weights(model)
+                    print("Succefully loaded model with optimizer info")
+
+                except Exception as e:
+                    print(f"Error finding pretrained model and optimizer: {e}, training from scratch instead")
+            else:
+                print('starting to train new model')
+        """
+        Here's our training & evaluation loop:
+        """
+
+        for epoch in tqdm(range(self.epochs)):
+            self.epoch = epoch
+            if self.verbose >= 2: 
                 print("\nStart of epoch %d" % (epoch,))
             start_time = time.time()
-            ECE_dict[epoch] = []
 
             # Iterate over the batches of the dataset.
             for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
@@ -193,61 +201,50 @@ class TrainBuilder():
                 # print(y_batch_train.shape)
                 # exit()
                 with tf.GradientTape() as tape:
-                    logits = model(x_batch_train, training=True)
+                    logits = model(self.transform(x_batch_train), training=True)
                     loss_value = self.cce_loss_fn(y_batch_train, logits)
                 grads = tape.gradient(loss_value, model.trainable_weights)
-                optimizer.apply_gradients(zip(grads, model.trainable_weights))
+                self.optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
                 # Update training metric.
                 self.train_acc_metric.update_state(y_batch_train, logits)
-            
-            # Display metrics at the middle of each epoch.
-            train_acc = self.rain_acc_metric.result()
-            if verbose: 
-                print("Training acc over (cce) epoch: %.4f" % (float(train_acc),))
-            # Reset training metrics at the end of each epoch
-            self.train_acc_metric.reset_states()
-
-            # Run a validation loop at the end of each epoch.
-            for x_batch_val, y_batch_val in val_dataset:
-                val_logits = model(x_batch_val, training=False)
-                # Update val metrics
-                self.val_acc_metric.update_state(y_batch_val, val_logits) 
-                #TODO: write custom update state for ece 
-
-            self.val_acc = val_acc_metric.result()
-            self.val_acc_metric.reset_states()
-
-            #iterate over batches of the shifted dataset, normalize the calibration
-            for step, (x_batch_train, y_batch_train) in enumerate(shift_train_dataset):
+              # Iterate over the batches of the dataset.
+            for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
+                # print(x_batch_train.shape)
+                # print(y_batch_train.shape)
+                # exit()
                 with tf.GradientTape() as tape:
-                    logits = model(x_batch_train, training=True)
-                    loss_value = self.ece_loss_fn(y_batch_train, logits)
-                    ECE_dict[epoch].append(loss_value)
-                grads = tape.gradient(loss_value, model.trainable_weights)
-                optimizer.apply_gradients(zip(grads, model.trainable_weights))
+                    logits = model(self.transform(x_batch_train), training=True)
+                    ece_val = self.ece_loss_fn(y_batch_train, logits)
+                    loss_value = tf.multiply(self.w, ece_val)
 
+                grads = tape.gradient(loss_value, model.trainable_weights)
+                self.optimizer.apply_gradients(zip(grads, model.trainable_weights))
+
+                self.ECE_dict[self.epoch].append(ece_val.numpy())
                 # Update training metric.
-                train_acc_metric.update_state(y_batch_train, logits)
+                self.train_acc_metric.update_state(y_batch_train, logits)
 
             # Display metrics at the end of each epoch.
-            train_acc = train_acc_metric.result()
-            if verbose: 
-                print("Training acc over (ece) epoch: %.4f" % (float(train_acc),))
-            ACC.append(train_acc.numpy())
-            ECE.append(np.mean(np.array(ECE_dict[epoch])))
+            train_acc = self.train_acc_metric.result()
+            if self.verbose >= 1: 
+                print("Training acc over epoch: %.4f" % (float(train_acc),))
+            self.ACC.append(train_acc.numpy())
             # Reset training metrics at the end of each epoch
             self.train_acc_metric.reset_states()
 
             # Run a validation loop at the end of each epoch.
             for x_batch_val, y_batch_val in val_dataset:
-                val_logits = model(x_batch_val, training=False)
+                val_logits = model(self.transform(x_batch_val), training=False)
                 # Update val metrics
                 self.val_acc_metric.update_state(y_batch_val, val_logits) 
                 #TODO: write custom update state for ece 
 
             val_acc = self.val_acc_metric.result()
             self.val_acc_metric.reset_states()
+            if self.verbose >= 1: 
+                print("Validation acc: %.4f" % (float(val_acc),))
+                print("Time taken: %.2fs" % (time.time() - start_time))
 
         self.display_results(model)     
 

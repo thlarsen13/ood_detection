@@ -32,7 +32,7 @@ from tqdm import tqdm
 from tensorflow.keras.applications import *
 from calibration_stats import ExpectedCalibrationError
 from train_loop import TrainBuilder
-from helper import resize_imgs
+from helper import resize_imgs, load_dataset_c
 
 # In[3]:
 
@@ -67,18 +67,13 @@ train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
 val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
 val_dataset = val_dataset.batch(batch_size)
 
-    
-def resize_img(img):
-    return cv2.resize(img, (height, width), interpolation=cv2.INTER_CUBIC)
 
-def resize_imgs(imgs, from_tensor=True): 
-    if from_tensor:
-        imgs=imgs.numpy()
+data, labels, sev = load_dataset_c('contrast', 'cifar_c')
 
-    new_imgs = np.empty((imgs.shape[0], height, width, channels))
-    for i in range(imgs.shape[0]): 
-        new_imgs[i] = resize_img(imgs[i])
-    return new_imgs
+
+train_dataset_shift = tf.data.Dataset.from_tensor_slices((data, labels))
+train_dataset_shift = train_dataset_shift.batch(batch_size)
+
 
 
 def main(): 
@@ -87,14 +82,14 @@ def main():
     # weights = [10 **i for i in range(-3, 1)]
     # learning_rates = [10**i for i in range(-5, -2)]
 
-    weights = [0, .1]
+    weights = [.1]
     learning_rates = [10**-4]
     # weights = [.1]
     # learning_rates = [10**-3]
 
     overall_results = [['l/w']+ weights]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 15
+    epochs = 5
     acc, ece = None, None 
     with tqdm(total=len(learning_rates) * len(weights)) as pbar:
         for lr in learning_rates: 
@@ -102,20 +97,22 @@ def main():
             for w in weights:
                 model = None
                
-                model_save_path = f'{prefix}saved_weights/cifar_calibrate/trn_cal(lr={lr})(w={w}).h5'
-                graph_path = f'{prefix}training_plots/cifar_calibrate/trn_cal(lr={lr})(w={w}).png'
+                # model_save_path = f'{prefix}saved_weights/cifar_calibrate/trn_cal(lr={lr})(w={w}).h5'
+                # graph_path = f'{prefix}training_plots/cifar_calibrate/trn_cal(lr={lr})(w={w}).png'
+                model_save_path = f'{prefix}saved_weights/cifar_calibrate/trn_2cal(lr={lr})(w={w}).h5'
+                graph_path = f'{prefix}training_plots/cifar_calibrate/trn_2cal(lr={lr})(w={w}).png'
 
                 builder = TrainBuilder(input_shape=input_shape,
                                     lr=lr, w=w, epochs=epochs, 
                                     graph_path=graph_path,
                                     model_save_path=model_save_path,
                                     transform = resize_imgs, 
-                                    verbose=1)
-                acc, ece = builder.train_attempt(train_dataset, val_dataset) 
+                                    verbose=3)
+                # acc, ece = builder.train_attempt(train_dataset, val_dataset) 
 
-                print('here3')
+                acc, ece = builder.shift_train_attempt(train_dataset, train_dataset_shift, val_dataset) 
+
                 overall_results[-1].append((acc, ece))
-                print('here4')
                 pbar.update(1)
 
     #array nonsense to make it print the array in a readable format

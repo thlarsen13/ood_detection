@@ -86,14 +86,18 @@ def load_cifar_model(lr = 10**-3, w = 1, train_alg='ece', model_arch='EfficientN
 
     model = get_model(model_arch=model_arch, verbose=1)
 
-    if train_alg == 'ece_shift': 
+    if train_alg == 'ece_shift' and model_arch == 'EfficientNetB0Transfer':
+        model_save_path = f'{cifar_prefix}trn_2cal(lr={lr})(w={w})'
+        trn = numpy_resize_imgs  
+    elif train_alg == 'ece_shift' and model_arch == 'EfficientNetB0':
         model_save_path = f'{cifar_prefix}2_cal(lr={lr})(w={w})'
-    elif train_alg == 'ece':
-        if model_arch == 'EfficientNetB0Transfer': 
-            trn = numpy_resize_imgs  
-            model_save_path = f'{cifar_prefix}trn_cal(lr={lr})(w={w})'
-        else:  
-            model_save_path = f'{cifar_prefix}cal(lr={lr})(w={w})'
+    elif train_alg == 'ece' and model_arch == 'EfficientNetB0Transfer': 
+        trn = numpy_resize_imgs  
+        model_save_path = f'{cifar_prefix}trn_cal(lr={lr})(w={w})'
+    elif train_alg == 'ece' and model_arch == 'EfficientNetB0':  
+        model_save_path = f'{cifar_prefix}B0(lr={lr})(w={w})'
+    elif train_alg == 'ece' and model_arch == 'EfficientNetB2':  
+        model_save_path = f'{cifar_prefix}B2(lr={lr})(w={w})'
     else: 
         print(f'error: {train_alg} has not been supported')
 

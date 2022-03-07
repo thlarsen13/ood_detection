@@ -7,11 +7,13 @@ import numpy as np
 from tensorflow.keras.losses import Loss
 from calibration_stats import ExpectedCalibrationError
 import time 
-from train_loop import train_attempt
+from train_loop import TrainBuilder
+
+from tensorflow.keras.models import Sequential
 
 verbose = False
 
-input_dim = 32*32
+input_shape = (32,32)
 
 # Prepare the training dataset.
 batch_size = 64
@@ -21,9 +23,9 @@ x_train = np.pad(x_train, ((0,0),(2,2),(2,2)), 'constant')
 x_test = np.pad(x_test, ((0,0),(2,2),(2,2)), 'constant')
 
 print(x_test.shape)
-x_train = np.reshape(x_train, (-1, input_dim))
-x_test = np.reshape(x_test, (-1, input_dim))
-print(x_test.shape)
+# x_train = np.reshape(x_train, (-1, input_dim))
+# x_test = np.reshape(x_test, (-1, input_dim))
+# print(x_test.shape)
 
 # Reserve 10,000 samples for validation.
 x_val = x_train[-10000:]
@@ -51,24 +53,29 @@ def main():
     # weights = [1]
     # learning_rates = [10**-3]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 60
+    epochs = 30
     for lr in learning_rates: 
         overall_results.append([f'lr = {lr}'])
         for w in weights:
 
-            inputs = keras.Input(shape=(input_dim,), name="digits")
-            x1 = layers.Dense(64, activation="relu")(inputs)
-            x2 = layers.Dense(64, activation="relu")(x1)
-            outputs = layers.Dense(10, name="predictions")(x2)
-            model = keras.Model(inputs=inputs, outputs=outputs)
+            # inputs = keras.Input(shape=(input_dim,), name="digits")
+            # x1 = layers.Dense(64, activation="relu")(inputs)
+            # x2 = layers.Dense(64, activation="relu")(x1)
+            # outputs = layers.Dense(10, name="predictions")(x2)
+            # model = keras.Model(inputs=inputs, outputs=outputs)
 
-            model_save_path = f'{prefix}saved_weights/mnist_calibrate/cal(lr={lr})(w={w})'
-            graph_path = f'{prefix}training_plots/mnist_calibrate/cal(lr={lr})(w={w}).png'
-            acc, ece = train_attempt(model, train_dataset, val_dataset, 
+
+            model_save_path = f'{prefix}saved_weights/mnist_calibrate/conv(lr={lr})(w={w})'
+            graph_path = f'{prefix}training_plots/mnist_calibrate/conv(lr={lr})(w={w}).png'
+
+            builder = TrainBuilder(input_shape=input_shape,
                                     lr=lr, w=w, epochs=epochs, 
-                                    graph_path=graph_path, 
-                                    model_save_path=model_save_path, 
-                                    verbose=True)
+                                    graph_path=graph_path,
+                                    model_save_path=model_save_path,
+                                    transform = None, 
+                                    verbose=3, 
+                                    model_arch='conv')
+            acc, ece = builder.train_attempt(train_dataset, val_dataset, model=None) 
             overall_results[-1].append((acc, ece))
 
     s = [[str(e) for e in row] for row in overall_results]

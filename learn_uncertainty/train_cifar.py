@@ -7,10 +7,10 @@ import time
 from datetime import datetime
 from tensorflow.keras.applications import *
 from tqdm import tqdm
-from train_loop import trainBuilder
+from train_loop import TrainBuilder
 # from shift_train_loop import train_attempt_shift
 
-from helper import load_dataset_c
+from helper import resize_imgs, load_dataset_c
 
 verbose = False
 
@@ -47,26 +47,29 @@ def main():
     # learning_rates = [10**i for i in range(-5, -2)]
 
     weights = [0]
-    learning_rates = [10**-4]
+    learning_rates = [10**-4, 10**-3, 10**-5]
     # weights = [.1]
     # learning_rates = [10**-3]
 
     overall_results = [['l/w']+ weights]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 50
+    epochs = 100
     acc, ece = None, None 
     with tqdm(total=len(learning_rates) * len(weights)) as pbar:
         for lr in learning_rates: 
             overall_results.append([lr])
             for w in weights:
                 model = None
-               
+                model_save_path = f'{prefix}saved_weights/cifar_calibrate/B0(lr={lr})(w={w}).h5'
+                graph_path = f'{prefix}training_plots/cifar_calibrate/B0(lr={lr})(w={w}).png'
+
                 builder = TrainBuilder(input_shape=input_shape,
                                     lr=lr, w=w, epochs=epochs, 
                                     graph_path=graph_path,
                                     model_save_path=model_save_path,
-                                    transform = resize_imgs, 
-                                    verbose=False)
+                                    transform = None, 
+                                    verbose=2, 
+                                    model_arch='EfficientNetB0')
                 acc, ece = builder.train_attempt(train_dataset, val_dataset, model) 
 
                 overall_results[-1].append((acc, ece))

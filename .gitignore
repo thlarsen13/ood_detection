@@ -1,3 +1,4 @@
+dataset_info/
 learn_uncertainty/transfer_learn/
 *graphs*
 distribution_shifts/cifar_c_init/
