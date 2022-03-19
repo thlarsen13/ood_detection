@@ -8,7 +8,7 @@ import cv2
 prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
 
 # ex:/home/thlarsen/ood_detection/distribution_shifts/cifar_c/labels.npy
-distribution_shifts = {
+distribution_shift_names = {
 "gaussian_noise" : 'Gaussian Noise',
 "shot_noise" : 'Shot Noise',
 "impulse_noise": 'Impulse Noise',
@@ -52,7 +52,7 @@ def resize_imgs(imgs, from_tensor=True):
 def load_dataset_c(method_name, dataset):
     if dataset not in ['mnist_c', 'cifar_c']: 
         print(f"Error, {dataset} not in [mnist, cifar]")
-    if method_name not in distribution_shifts.keys(): 
+    if method_name not in distribution_shift_names.keys(): 
         print(f"Error, {method_name} not a valid shift")
     folder_path = f'/home/thlarsen/ood_detection/distribution_shifts/{dataset}/'
     data = np.load(folder_path + method_name + '.npy')
@@ -118,12 +118,22 @@ def load_cifar_model(lr = 10**-3, w = 1, train_alg='ece', model_arch='EfficientN
 
 
 
-def load_mnist_model(lr = 10**-3, w = 1): 
-	prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-	model_save_path = f'{prefix}saved_weights/mnist_calibrate/cal(lr={lr})(w={w})'
+def load_mnist_model(lr = 10**-3, w = 1, train_alg='ece', model_arch='conv'): 
+    prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
 
-	model = keras.models.load_model(model_save_path)
-	return model 
+    if model_arch == 'conv': 
+        if train_alg == 'ece':
+           model_save_path = f'{prefix}saved_weights/mnist_calibrate/conv(lr={lr})(w={w})'
+        elif train_alg == 'ece_shift':
+            model_save_path = f'{prefix}saved_weights/mnist_calibrate/sh_conv(lr={lr})(w={w})'
+    elif model_arch == 'seq': 
+        if train_alg == 'ece':
+            model_save_path = f'{prefix}saved_weights/mnist_calibrate/cal(lr={lr})(w={w})'
+        elif train_alg == 'ece_shift':
+            model_save_path = f'{prefix}saved_weights/mnist_calibrate/sh_cal(lr={lr})(w={w})'
+
+    model = keras.models.load_model(model_save_path)
+    return model 
 def rgb_img_to_vec(x): 
     x = np.dot(x, [0.299, 0.587, 0.114])
     # print(x.shape)

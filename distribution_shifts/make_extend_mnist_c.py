@@ -470,15 +470,15 @@ for method_name in d.keys():
             for img, label in zip(test_data.data, test_data.targets):
 
                 # print(type(img))
-                # exit()
+                exit() #reminder to verify shapes here, code below is wierd
                 if severity == 0: 
                     # if np.uint8(img).shape != (32, 32, 3):
                     #     print(np.uint8(img).shape)
-                    img = p(img).reshape(32, 32, 1).repeat(1, 1, 3)
+                    img = p(img).reshape(32, 32, 1).repeat(3, axis=2)
 
                     mnist_c.append(np.uint8(img))
                 else: 
-                    img = p(img).reshape(1, 32, 32).repeat(3, 1, 1)
+                    img = p(img).reshape(1, 32, 32).repeat(3, axis=0)
 
                     img2 = np.uint8(corruption(trn.ToPILImage()(img)))
 

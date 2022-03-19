@@ -1,3 +1,5 @@
+*save*
+*.png
 dataset_info/
 learn_uncertainty/transfer_learn/
 *graphs*

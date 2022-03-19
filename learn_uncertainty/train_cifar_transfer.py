@@ -102,8 +102,7 @@ def main():
                 model_save_path = f'{prefix}saved_weights/cifar_calibrate/trn_2cal(lr={lr})(w={w}).h5'
                 graph_path = f'{prefix}training_plots/cifar_calibrate/trn_2cal(lr={lr})(w={w}).png'
 
-                builder = TrainBuilder(input_shape=input_shape,
-                                    lr=lr, w=w, epochs=epochs, 
+                builder = TrainBuilder(lr=lr, w=w, epochs=epochs, 
                                     graph_path=graph_path,
                                     model_save_path=model_save_path,
                                     transform = resize_imgs, 

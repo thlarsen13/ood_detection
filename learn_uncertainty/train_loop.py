@@ -23,8 +23,7 @@ import os
 
 class TrainBuilder(): 
 
-    def __init__(self, input_shape, lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None, verbose=1, transform=None, model_arch='EfficientNetB0Transfer'): 
-        self.input_shape = input_shape
+    def __init__(self, lr=1e-3, w=1, epochs=20, graph_path=None, model_save_path=None, verbose=1, transform=None, model_arch='EfficientNetB0Transfer'): 
         self.lr = lr 
         self.w = w
         self.epochs = epochs 
@@ -102,7 +101,6 @@ class TrainBuilder():
 
     def display_results(self, model): 
         if self.graph_path is not None: 
-            self.ECE = [np.mean(self.ECE_dict[i]) for i in range(self.epochs)]
             print(f"\n\n\n@@@ {self.graph_path}\n ECE ({len(self.ECE)}): {self.ECE} \nACC ({len(self.ACC)}): {self.ACC}")
         if self.model_save_path is not None: 
             # model.compile(optimizer="Adam", loss=tf.keras.losses.CategoricalCrossentropy)
@@ -135,8 +133,8 @@ class TrainBuilder():
             # Iterate over the batches of the dataset.
             for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
                 # print(x_batch_train.shape)
-                # print(y_batch_train.shape)
                 # exit()
+
                 with tf.GradientTape() as tape:
                     logits = model(self.transform(x_batch_train), training=True)
                     loss_value = self.loss_fn(y_batch_train, logits)
@@ -146,10 +144,14 @@ class TrainBuilder():
                 # Update training metric.
                 self.train_acc_metric.update_state(y_batch_train, logits)
 
+            self.ECE.append(np.mean(self.ECE_dict[epoch]))
+
             # Display metrics at the end of each epoch.
             train_acc = self.train_acc_metric.result()
             if self.verbose >= 1: 
                 print("Training acc over epoch: %.4f" % (float(train_acc),))
+                print("Training ece over epoch: %.4f" % (float(self.ECE[epoch]),))
+
             self.ACC.append(train_acc.numpy())
             # Reset training metrics at the end of each epoch
             self.train_acc_metric.reset_states()
@@ -197,7 +199,7 @@ class TrainBuilder():
 
             # Iterate over the batches of the dataset.
             for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
-                # print(x_batch_train.shape)
+
                 # print(y_batch_train.shape)
                 # exit()
                 with tf.GradientTape() as tape:
@@ -224,6 +226,7 @@ class TrainBuilder():
                 self.ECE_dict[self.epoch].append(ece_val.numpy())
                 # Update training metric.
                 self.train_acc_metric.update_state(y_batch_train, logits)
+            self.ECE.append(np.mean(self.ECE_dict[epoch]))
 
             # Display metrics at the end of each epoch.
             train_acc = self.train_acc_metric.result()

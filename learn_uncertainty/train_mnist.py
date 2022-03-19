@@ -8,12 +8,12 @@ from tensorflow.keras.losses import Loss
 from calibration_stats import ExpectedCalibrationError
 import time 
 from train_loop import TrainBuilder
-
+from helper import load_dataset_c
 from tensorflow.keras.models import Sequential
 
 verbose = False
 
-input_shape = (32,32)
+input_shape = (32,32, 3)
 
 # Prepare the training dataset.
 batch_size = 64
@@ -22,10 +22,14 @@ batch_size = 64
 x_train = np.pad(x_train, ((0,0),(2,2),(2,2)), 'constant')
 x_test = np.pad(x_test, ((0,0),(2,2),(2,2)), 'constant')
 
+print(x_train.shape)
+
 print(x_test.shape)
-# x_train = np.reshape(x_train, (-1, input_dim))
-# x_test = np.reshape(x_test, (-1, input_dim))
-# print(x_test.shape)
+x_train = x_train.reshape((-1, 32, 32, 1)).repeat(3, axis=3)
+x_test = x_test.reshape((-1, 32, 32, 1)).repeat(3, axis=3)
+
+print(x_train.shape)
+
 
 # Reserve 10,000 samples for validation.
 x_val = x_train[-10000:]
@@ -42,39 +46,48 @@ val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
 val_dataset = val_dataset.batch(batch_size)
 
 
+data, labels, sev = load_dataset_c('contrast', 'mnist_c')
+
+train_dataset_shift = tf.data.Dataset.from_tensor_slices((data, labels))
+train_dataset_shift = train_dataset_shift.batch(batch_size)
+def flatten(input_imgs): 
+    # print(input_imgs.shape)
+    return tf.reshape(input_imgs, (-1, 3072))
+
+def bnn_cast(imgs): 
+    return tf.cast(imgs, dtype=tf.float32)
+
 def main(): 
 
     # weights = [10 **i for i in range(-3, 3)]
     # learning_rates = [10**i for i in range(-5, -1)]
-    weights = [.1, 0]               
-    learning_rates = [10**-4]
+    weights = [0]               
+    learning_rates = [10**-3]
     overall_results = [['l/w']+weights]
+    model_arch = 'bnn'
 
     # weights = [1]
     # learning_rates = [10**-3]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 30
+    epochs = 5
     for lr in learning_rates: 
         overall_results.append([f'lr = {lr}'])
         for w in weights:
-
-            # inputs = keras.Input(shape=(input_dim,), name="digits")
-            # x1 = layers.Dense(64, activation="relu")(inputs)
-            # x2 = layers.Dense(64, activation="relu")(x1)
-            # outputs = layers.Dense(10, name="predictions")(x2)
-            # model = keras.Model(inputs=inputs, outputs=outputs)
-
-
-            model_save_path = f'{prefix}saved_weights/mnist_calibrate/conv(lr={lr})(w={w})'
-            graph_path = f'{prefix}training_plots/mnist_calibrate/conv(lr={lr})(w={w}).png'
-
-            builder = TrainBuilder(input_shape=input_shape,
-                                    lr=lr, w=w, epochs=epochs, 
-                                    graph_path=graph_path,
+            transform = None
+            if model_arch == 'bnn': 
+                model_save_path = f'{prefix}saved_weights/mnist_calibrate/bnn(lr={lr})(w={w})'
+                transform = bnn_cast
+            elif model_arch == 'seq?':
+                model_save_path = f'{prefix}saved_weights/mnist_calibrate/sh_cal(lr={lr})(w={w})'
+                transform = flatten
+            builder = TrainBuilder(lr=lr, w=w, epochs=epochs, 
+                                    graph_path=None,
                                     model_save_path=model_save_path,
-                                    transform = None, 
-                                    verbose=3, 
-                                    model_arch='conv')
+                                    transform = transform, 
+                                    verbose=2, 
+                                    model_arch=model_arch)
+            # acc, ece = builder.shift_train_attempt(train_dataset, train_dataset_shift, val_dataset, model=None) 
+
             acc, ece = builder.train_attempt(train_dataset, val_dataset, model=None) 
             overall_results[-1].append((acc, ece))
 
