@@ -55,6 +55,11 @@ class TrainBuilder():
         self.train_acc_metric = keras.metrics.SparseCategoricalAccuracy()
         self.val_acc_metric = keras.metrics.SparseCategoricalAccuracy()
 
+        if self.w == 0: 
+            self.used_loss_fn = self.cce_loss_fn
+        else: 
+            self.used_loss_fn = self.loss_fn
+
     def loss_fn(self, y_batch_train, logits): 
         # print(y_batch_train.shape)
         # print(logits.shape)
@@ -100,7 +105,7 @@ class TrainBuilder():
 
 
     def display_results(self, model): 
-        if self.graph_path is not None: 
+        if self.graph_path is not None and self.w > 0: 
             print(f"\n\n\n@@@ {self.graph_path}\n ECE ({len(self.ECE)}): {self.ECE} \nACC ({len(self.ACC)}): {self.ACC}")
         if self.model_save_path is not None: 
             # model.compile(optimizer="Adam", loss=tf.keras.losses.CategoricalCrossentropy)
@@ -123,6 +128,11 @@ class TrainBuilder():
         """
         Here's our training & evaluation loop:
         """
+        logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
+                                                 histogram_freq = 1,
+                                                 profile_batch = '500,520')
 
         for epoch in tqdm(range(self.epochs)):
             self.epoch = epoch
@@ -133,11 +143,10 @@ class TrainBuilder():
             # Iterate over the batches of the dataset.
             for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
                 # print(x_batch_train.shape)
-                # exit()
 
                 with tf.GradientTape() as tape:
                     logits = model(self.transform(x_batch_train), training=True)
-                    loss_value = self.loss_fn(y_batch_train, logits)
+                    loss_value = self.used_loss_fn(y_batch_train, logits)
                 grads = tape.gradient(loss_value, model.trainable_weights)
                 self.optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
@@ -150,7 +159,8 @@ class TrainBuilder():
             train_acc = self.train_acc_metric.result()
             if self.verbose >= 1: 
                 print("Training acc over epoch: %.4f" % (float(train_acc),))
-                print("Training ece over epoch: %.4f" % (float(self.ECE[epoch]),))
+                if self.w > 0: 
+                    print("Training ece over epoch: %.4f" % (float(self.ECE[epoch]),))
 
             self.ACC.append(train_acc.numpy())
             # Reset training metrics at the end of each epoch
@@ -171,7 +181,10 @@ class TrainBuilder():
 
         self.display_results(model)     
 
-        return round(self.ACC[-1], 4), round(self.ECE[-1], 4)
+        if self.w > 0: 
+            return round(self.ACC[-1], 4), round(self.ECE[-1], 4)
+        else: 
+            return round(self.ACC[-1], 4), None
 
 
     def shift_train_attempt(self, train_dataset, shift_train_dataset, val_dataset, model=None): 

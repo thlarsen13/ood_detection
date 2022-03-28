@@ -15,8 +15,12 @@ verbose = False
 
 input_shape = (32,32, 3)
 
+def bnn_cast(imgs): 
+    return tf.cast(imgs, dtype=tf.float32)
+
+
 # Prepare the training dataset.
-batch_size = 64
+batch_size = 5
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
 
 x_train = np.pad(x_train, ((0,0),(2,2),(2,2)), 'constant')
@@ -30,6 +34,7 @@ x_test = x_test.reshape((-1, 32, 32, 1)).repeat(3, axis=3)
 
 print(x_train.shape)
 
+# x_train = bnn_cast(x_train)
 
 # Reserve 10,000 samples for validation.
 x_val = x_train[-10000:]
@@ -54,32 +59,33 @@ def flatten(input_imgs):
     # print(input_imgs.shape)
     return tf.reshape(input_imgs, (-1, 3072))
 
-def bnn_cast(imgs): 
-    return tf.cast(imgs, dtype=tf.float32)
-
 def main(): 
 
     # weights = [10 **i for i in range(-3, 3)]
     # learning_rates = [10**i for i in range(-5, -1)]
-    weights = [0]               
-    learning_rates = [10**-3]
+    weights = [0, .1]               
+    learning_rates = [10**-4]
     overall_results = [['l/w']+weights]
-    model_arch = 'bnn'
-
+    model_arch = 'conv'
+    train_alg = 'ece'
     # weights = [1]
     # learning_rates = [10**-3]
     prefix = '/home/thlarsen/ood_detection/learn_uncertainty/'
-    epochs = 5
+    epochs = 20
     for lr in learning_rates: 
         overall_results.append([f'lr = {lr}'])
         for w in weights:
             transform = None
             if model_arch == 'bnn': 
                 model_save_path = f'{prefix}saved_weights/mnist_calibrate/bnn(lr={lr})(w={w})'
-                transform = bnn_cast
-            elif model_arch == 'seq?':
+                # transform = bnn_cast
+            elif model_arch == 'conv' and train_alg == 'ece_shift':
                 model_save_path = f'{prefix}saved_weights/mnist_calibrate/sh_cal(lr={lr})(w={w})'
                 transform = flatten
+            elif model_arch == 'conv' and train_alg == 'ece': 
+                model_save_path = f'{prefix}saved_weights/mnist_calibrate/conv(lr={lr})(w={w})'
+                transform = None
+
             builder = TrainBuilder(lr=lr, w=w, epochs=epochs, 
                                     graph_path=None,
                                     model_save_path=model_save_path,

@@ -104,7 +104,7 @@ def get_model(model_arch, verbose):
         model.add(Flatten()) # Flattening the 2D arrays for fully connected layers
         model.add(Dense(128, activation=tf.nn.relu))
         model.add(Dropout(0.2))
-        model.add(Dense(10,activation=tf.nn.softmax))
+        model.add(Dense(10))
         # exit() 
     elif model_arch == 'conv2': 
         model = Sequential()
@@ -115,7 +115,7 @@ def get_model(model_arch, verbose):
         model.add(Flatten()) # Flattening the 2D arrays for fully connected layers
         model.add(Dense(128, activation=tf.nn.relu))
         model.add(Dropout(0.2))
-        model.add(Dense(10,activation=tf.nn.softmax))
+        model.add(Dense(10,))
 
     elif model_arch == 'seq':
         inputs = keras.Input(shape=(3072), name="digits")

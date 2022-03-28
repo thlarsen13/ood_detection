@@ -131,6 +131,7 @@ def load_mnist_model(lr = 10**-3, w = 1, train_alg='ece', model_arch='conv'):
             model_save_path = f'{prefix}saved_weights/mnist_calibrate/cal(lr={lr})(w={w})'
         elif train_alg == 'ece_shift':
             model_save_path = f'{prefix}saved_weights/mnist_calibrate/sh_cal(lr={lr})(w={w})'
+    
 
     model = keras.models.load_model(model_save_path)
     return model 

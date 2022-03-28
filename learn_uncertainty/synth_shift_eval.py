@@ -213,9 +213,10 @@ def generate_average_graph(model_ids, acc, ece, distribution_shifts, dataset, ba
 
 def collate_results(distribution_shifts, metric, metric_name, model_ids, dataset): 
 
+    # if dataset == 'mnist':
     y_max = .7
     ece_y = [.0, .1, .2, .3, .4, .5, .6]
-
+    ax_font = 30
 
     fig, axes = plt.subplots(nrows=2, ncols=5, figsize=(50, 25))
 
@@ -232,17 +233,17 @@ def collate_results(distribution_shifts, metric, metric_name, model_ids, dataset
 
 
         axes[i,j].set_xticks(X_axis, X)
-        axes[i,j].set_xticklabels(labels=range(-2, len(X), 2), fontsize=20)
+        axes[i,j].set_xticklabels(labels=range(-2, len(X), 2), fontsize=ax_font)
 
 
         if metric_name == 'ECE':
             axes[i,j].set_ylim(0, y_max)
             axes[i,j].set_yticks(ece_y)
-            axes[i,j].set_yticklabels(labels=ece_y, fontsize=20)
+            axes[i,j].set_yticklabels(labels=ece_y, fontsize=ax_font)
         elif metric_name == 'Accuracy': 
             axes[i,j].set_ylim(0, 1.05)
             axes[i,j].set_yticks(np.arange(0, 1.2, .2))
-            axes[i,j].set_yticklabels(labels=[0.0, .2, .4, .6, .8, 1.0], fontsize=20)
+            axes[i,j].set_yticklabels(labels=[0.0, .2, .4, .6, .8, 1.0], fontsize=ax_font)
         else: 
             print(f"oops: metric_name: {metric_name}")
             exit() 
@@ -250,8 +251,10 @@ def collate_results(distribution_shifts, metric, metric_name, model_ids, dataset
         for idx, model_id in enumerate(model_ids.keys()): 
             axes[i,j].bar(X_axis + inc[idx], metric[shift][model_id], width=width, label=model_ids[model_id])
 
-        axes[i,j].set_xlabel("Shift Intensity", fontsize=35)
-        axes[i,j].set_ylabel(f"{metric_name}", fontsize=35)
+        if i == 1: 
+            axes[i,j].set_xlabel("Shift Intensity", fontsize=35)
+        if j == 0: 
+            axes[i,j].set_ylabel(f"{metric_name}", fontsize=35)
         axes[i,j].set_title(f"{shift_name}", fontsize=45)
 
         i += 1 
@@ -274,11 +277,6 @@ def collate_results(distribution_shifts, metric, metric_name, model_ids, dataset
         total_avg_metric = np.mean(avg_metric[model_id])
         print(f'model: {model_id} avg {metric_name}: {total_avg_metric}')
 
-    # if baseline_id != None: 
-    # avg_ece[baseline] = [.05, .07, .12, .15, .22, .35, .4, .43, .47, .51, .49]
-        # avg_acc[baseline_id] = [.95, .87, .8, .63, .45, .3, .29, .25, .21, .18, .14]
-
-    # Baseline data from Ovadia 2019 
 
 
     X = range(sevs)
@@ -288,23 +286,23 @@ def collate_results(distribution_shifts, metric, metric_name, model_ids, dataset
         axes[1, 4].bar(X_axis + inc[i], avg_metric[model_id], width =width, label = model_ids[model_id])
 
     axes[1, 4].set_xlabel("Shift Intensity", fontsize=35)
-    axes[1, 4].set_ylabel(f"{metric_name}", fontsize=35)
+    # axes[1, 4].set_ylabel(f"{metric_name}", fontsize=35)
     axes[1, 4].set_title(f"Average {metric_name} over shifts", fontsize=45)
     # axes[1, 4].legend()
 
     X = range(sevs)  
     X_axis = np.arange(len(X))
     axes[1, 4].set_xticks(X_axis, X)
-    axes[1, 4].set_xticklabels(labels=range(-2, len(X), 2), fontsize=20)
+    axes[1, 4].set_xticklabels(labels=range(-2, len(X), 2), fontsize=ax_font)
 
     if metric_name == 'ECE':
         axes[1, 4].set_ylim(0, y_max)
         axes[1, 4].set_yticks(ece_y)
-        axes[1, 4].set_yticklabels(labels=ece_y, fontsize=20)
+        axes[1, 4].set_yticklabels(labels=ece_y, fontsize=ax_font)
     elif metric_name == 'Accuracy': 
         axes[1, 4].set_ylim(0, 1.05)
         axes[1, 4].set_yticks(np.arange(0, 1.2, .2))
-        axes[1, 4].set_yticklabels(labels=[0.0, .2, .4, .6, .8, 1.0], fontsize=20)
+        axes[1, 4].set_yticklabels(labels=[0.0, .2, .4, .6, .8, 1.0], fontsize=ax_font)
     else: 
         print(f"oops: metric_name: {metric_name}")
         exit() 
@@ -401,9 +399,9 @@ def main():
     acc, ece = load_eval_from_pickle(file_model_ids, dataset)
 
     # collate_results(distribution_shifts, acc, "Accuracy", model_ids, dataset)
-    # collate_results(distribution_shifts, ece, "ECE", model_ids, dataset)
+    collate_results(distribution_shifts, ece, "ECE", model_ids, dataset)
 
-    generate_average_graph(model_ids, acc, ece, distribution_shifts, dataset, baseline_id=None)
+    # generate_average_graph(model_ids, acc, ece, distribution_shifts, dataset, baseline_id=None)
 
     # generate_average_graph(model_ids, acc, ece, distribution_shifts, dataset, baseline_id=model_ids[0])
 
